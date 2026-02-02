@@ -4,4 +4,6 @@ packages:
 
 ignoredBuiltDependencies:
   - esbuild
+
+onlyBuiltDependencies:
   - node-pty
