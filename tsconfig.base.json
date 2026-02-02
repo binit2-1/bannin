@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ESNext"],
+    "strict": true,                // The "Strict" in "Strictly Typed"
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,           // Auto-generate .d.ts files for users
+    "sourceMap": true,             // Critical for debugging
+    "composite": true              // Optimizes builds for monorepos
+  }
+}
