@@ -19,18 +19,20 @@ const term = new Terminal({
 console.log("Writing 'Terminal Started' to the invisible screen...");
 
 ptyProcess.onData((data) => {
-  term.write("Terminal started");
+  term.write(data);
 });
 
 setTimeout(() => {
-  const buffer = term.buffer.active;
-  const topRow = buffer.getLine(0);
-
-  if (topRow) {
+    const buffer = term.buffer.active;
     console.log("\n[SCREEN SNAPSHOT]:");
-    // .translateToString(true) trims the empty black space
-    console.log(`Row 0 says: "${topRow.translateToString(true)}"`);
-  } else {
-    console.log("Error: Screen is empty!");
+  
+  // Let's print the first 5 lines to prove it captured the file list
+  for(let i = 0; i < 5; i++) {
+    const line = buffer.getLine(i);
+    if (line) {
+      console.log(`"${line.translateToString(true)}"`);
+    }
   }
+
+  process.exit(0);
 }, 1000);
