@@ -1,20 +1,36 @@
-import * as os from 'node:os';
-import * as pty from 'node-pty';
+import * as pty from "node-pty";
+import xtermHeadless from "@xterm/headless";
+const { Terminal } = xtermHeadless;
 
-const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
-
-const ptyProcess = pty.spawn(shell, [], {
-  name: 'xterm-color',
+const ptyProcess = pty.spawn("ls", ["-la", "--color=always"], {
+  name: "xterm-color",
   cols: 80,
-  rows: 30,
-  cwd: process.env.HOME,
-  env: process.env
+  rows: 24,
+  cwd: process.cwd(),
+  env: process.env,
 });
+
+const term = new Terminal({
+  allowProposedApi: true,
+  cols: 80,
+  rows: 24,
+});
+
+console.log("Writing 'Terminal Started' to the invisible screen...");
 
 ptyProcess.onData((data) => {
-  process.stdout.write(data);
+  term.write("Terminal started");
 });
 
-ptyProcess.write('ls\r');
-ptyProcess.resize(100, 40);
-ptyProcess.write('ls\r');
+setTimeout(() => {
+  const buffer = term.buffer.active;
+  const topRow = buffer.getLine(0);
+
+  if (topRow) {
+    console.log("\n[SCREEN SNAPSHOT]:");
+    // .translateToString(true) trims the empty black space
+    console.log(`Row 0 says: "${topRow.translateToString(true)}"`);
+  } else {
+    console.log("Error: Screen is empty!");
+  }
+}, 1000);
