@@ -1,5 +1,6 @@
 import * as pty from "node-pty";
 import * as os from "node:os";
+import * as fs from "node:fs/promises"; 
 import xtermHeadles from "@xterm/headless";
 const { Terminal } = xtermHeadles;
 
@@ -7,6 +8,14 @@ type TerminalInstance = import("@xterm/headless").Terminal;
 
 export function createSession() {
   const shell = os.platform() === "win32" ? "powershell.exe" : "bash";
+
+  type RecordingEvent = {
+    timeOffset: number,
+    content: string
+  }
+
+  const events: RecordingEvent[] = []
+  const startTime = Date.now();
 
   const ptyProcess = pty.spawn(shell, [], {
     name: "xterm-color",
@@ -24,6 +33,10 @@ export function createSession() {
 
   ptyProcess.onData((data) => {
     term.write(data);
+    events.push({
+      timeOffset: Date.now() - startTime,
+      content: data
+    });
   });
 
   return {
@@ -46,6 +59,12 @@ export function createSession() {
       return snapshot;
     },
 
+    saveRecording: (filepath: string) =>{
+      const recordingJSON = JSON.stringify(events, null, 2)
+      fs.writeFile(filepath, recordingJSON);
+      console.log(`Recording Saved to ${filepath}`);
+    },
+
     kill: () => {
       ptyProcess.kill();
     },
@@ -62,6 +81,8 @@ if (process.argv[1] === import.meta.filename) {
 
     const lines = session.getSnapshot(5);
     lines?.forEach((line) => console.log(`> "${line}"`));
+
+    session.saveRecording("recording.json");
 
     session.kill();
   })();
