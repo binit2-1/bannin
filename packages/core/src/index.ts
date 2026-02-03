@@ -2,6 +2,8 @@ import * as pty from "node-pty";
 import * as os from "node:os";
 import * as fs from "node:fs/promises"; 
 import xtermHeadles from "@xterm/headless";
+import { getHeapSnapshot } from "node:v8";
+import { text } from "node:stream/consumers";
 const { Terminal } = xtermHeadles;
 
 type TerminalInstance = import("@xterm/headless").Terminal;
@@ -65,25 +67,24 @@ export function createSession() {
       console.log(`Recording Saved to ${filepath}`);
     },
 
+    waitForText: async ( text: string, timeout = 5000 ) => {
+
+      const searchStartTime = Date.now();
+      while(Date.now() - searchStartTime < timeout){
+        const snapshot = term.buffer.active;
+        for(let i=0; i< snapshot.length; i++){
+          const line = snapshot.getLine(i);
+          if(line && line.translateToString(true).includes(text)){
+            return;
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      throw new Error(`Timeout waiting for text: ${text}`);
+    },
+
     kill: () => {
       ptyProcess.kill();
     },
   };
-}
-
-if (process.argv[1] === import.meta.filename) {
-  (async () => {
-    const session = createSession();
-
-    session.write("ls -la --color=always\r");
-
-    await session.wait(1000);
-
-    const lines = session.getSnapshot(5);
-    lines?.forEach((line) => console.log(`> "${line}"`));
-
-    session.saveRecording("recording.json");
-
-    session.kill();
-  })();
 }
