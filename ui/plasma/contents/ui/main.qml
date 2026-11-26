@@ -44,6 +44,7 @@ PlasmoidItem{
 
     compactRepresentation: CompactView {
         memPct: root.memPct
+        swapPct: root.swapPct
         onClicked: root.expanded = !root.expanded
     }
 

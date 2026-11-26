@@ -23,3 +23,6 @@ widget-test:
 
 widget-install:
 	@kpackagetool6 -t Plasma/Applet -i ui/plasma || kpackagetool6 -t Plasma/Applet -u ui/plasma
+
+widget-refresh: widget-install
+	@systemctl --user restart plasma-plasmashell
