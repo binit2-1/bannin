@@ -1,0 +1,13 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "X-Plasma-API-Minimum-Version": "6.0",
+  "KPlugin": {
+    "Id": "io.github.binit2-1.bannin",
+    "Name": "Bannin",
+    "Description": "Memory watchman",
+    "Icon": "memory",
+    "Category": "System Information",
+    "Version": "0.0.1",
+    "Authors": [{ "Name": "<your-name>" }]
+  }
+}
