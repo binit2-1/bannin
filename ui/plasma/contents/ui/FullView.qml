@@ -15,7 +15,11 @@ ColumnLayout {
 
     signal stopRequested(string id)
 
+    // Plasma sizes the popup from these; the user can still drag it bigger.
     Layout.minimumWidth: Kirigami.Units.gridUnit * 20
+    Layout.preferredWidth: Kirigami.Units.gridUnit * 24
+    Layout.minimumHeight: Kirigami.Units.gridUnit * 18
+    Layout.preferredHeight: Kirigami.Units.gridUnit * 30
     spacing: Kirigami.Units.smallSpacing
 
     // "bundled:react" is an SVG shipped with the widget; anything else is a theme icon.
@@ -71,8 +75,7 @@ ColumnLayout {
         id: scroll
         Layout.fillWidth: true
         Layout.fillHeight: true
-        Layout.preferredHeight: Math.min(list.implicitHeight,
-                                         Kirigami.Units.gridUnit * 18)
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 6
         visible: groups.length > 0
         PC.ScrollBar.horizontal.policy: PC.ScrollBar.AlwaysOff
 
