@@ -1,6 +1,5 @@
 package ipc
 
-
 // MemStatus is the output of `bannin mem --json`.
 type MemStatus struct {
 	V       int     `json:"v"`
@@ -12,6 +11,7 @@ type MemStatus struct {
 
 // GroupInfo is one line in the popup.
 type GroupInfo struct {
+	ID       string  `json:"id"`
 	Name     string  `json:"name"`
 	Kind     string  `json:"kind"`
 	RSSMB    float64 `json:"rss_mb"`

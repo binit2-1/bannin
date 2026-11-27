@@ -14,12 +14,25 @@ PlasmoidItem {
 
     readonly property string cmdMem: "$HOME/.local/bin/bannin mem --json"
     readonly property string cmdList: "$HOME/.local/bin/bannin list --json"
+    readonly property string cmdStop: "$HOME/.local/bin/bannin stop "
+
+    // Group IDs are "g" + hex, so they are safe to put in a shell command.
+    function stopGroup(id) {
+        if (/^g[0-9a-f]{8}$/.test(id)) {
+            exec.connectSource(cmdStop + id)
+        }
+    }
 
     P5.DataSource {
         id: exec
         engine: "executable"
         onNewData: (source, data) => {
             disconnectSource(source)
+            if (source.startsWith(root.cmdStop)) {
+                root.error = data["exit code"] === 0 ? "" : (data.stderr || "stop failed")
+                exec.connectSource(root.cmdList) // refresh right away
+                return
+            }
             if (data["exit code"] !== 0) {
                 root.error = data.stderr || "bannin failed"
                 return
@@ -73,5 +86,6 @@ PlasmoidItem {
         totalGb: root.totalGb
         groups: root.groups
         error: root.error
+        onStopRequested: id => root.stopGroup(id)
     }
 }

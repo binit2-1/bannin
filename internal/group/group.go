@@ -1,6 +1,8 @@
 package group
 
 import (
+	"fmt"
+	"hash/fnv"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -10,6 +12,7 @@ import (
 
 // Group is a set of related processes shown as one line.
 type Group struct {
+	ID       string
 	Name     string
 	Kind     string // "metro", "gradle", "emulator", "devtool", "other"
 	RSSKB    uint64
@@ -30,7 +33,7 @@ func Build(procs []sampler.Proc) []Group {
 
 		g, ok := groups[name]
 		if !ok {
-			g = &Group{Name: name, Kind: kind}
+			g = &Group{ID: makeID(name), Name: name, Kind: kind}
 			groups[name] = g
 		}
 		g.RSSKB += p.RSSKB
@@ -95,4 +98,11 @@ func isDetached(p sampler.Proc, byPID map[int]sampler.Proc) bool {
 	}
 	parent, ok := byPID[p.PPID]
 	return ok && parent.Name == "systemd"
+}
+
+// makeID turns a group name into a short ID made only of "g" and hex digits.
+func makeID(name string) string {
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	return fmt.Sprintf("g%08x", h.Sum32())
 }

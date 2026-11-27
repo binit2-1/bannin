@@ -9,6 +9,7 @@ import (
 	"github.com/binit2-1/bannin/internal/group"
 	"github.com/binit2-1/bannin/internal/ipc"
 	"github.com/binit2-1/bannin/internal/sampler"
+	"github.com/binit2-1/bannin/internal/stop"
 )
 
 const version = "0.0.1"
@@ -100,6 +101,7 @@ func main() {
 				continue
 			}
 			infos = append(infos, ipc.GroupInfo{
+				ID:       g.ID,
 				Name:     g.Name,
 				Kind:     g.Kind,
 				RSSMB:    mb,
@@ -121,6 +123,9 @@ func main() {
 			}
 			fmt.Printf("%-2s %-30s %9.0f %5d\n", mark, g.Name, g.RSSMB, len(g.PIDs))
 		}
+	case "stop":
+		os.Exit(runStop(os.Args[2:]))
+
 	default:
 		fmt.Println("unknown command:", os.Args[1])
 		usage()
@@ -132,7 +137,11 @@ func main() {
 func usage() {
 	fmt.Println("usage: bannin <command>")
 	fmt.Println("commands:")
-	fmt.Println("  version   show the version")
+	fmt.Println("  version          show the version")
+	fmt.Println("  mem [--json]     show RAM and swap use")
+	fmt.Println("  top              biggest processes")
+	fmt.Println("  list [--all] [--json]  processes grouped by app")
+	fmt.Println("  stop <id> [--force]    stop a group from `list --json`")
 }
 
 // truncate shortens s to n characters, adding … if it was cut.
@@ -142,4 +151,40 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return string(r[:n]) + "…"
+}
+
+// runStop stops the group with the given ID and returns the exit code.
+func runStop(args []string) int {
+	id, force := "", false
+	for _, a := range args {
+		if a == "--force" {
+			force = true
+		} else {
+			id = a
+		}
+	}
+	if id == "" {
+		fmt.Fprintln(os.Stderr, "usage: bannin stop <id> [--force]")
+		return 2
+	}
+
+	procs, err := sampler.ReadProcs()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	for _, g := range group.Build(procs) {
+		if g.ID != id {
+			continue
+		}
+		alive := stop.Group(g.PIDs, force)
+		if len(alive) > 0 {
+			fmt.Fprintf(os.Stderr, "%s: %d process(es) still running\n", g.Name, len(alive))
+			return 1
+		}
+		fmt.Printf("stopped %s (%.0f MB)\n", g.Name, float64(g.RSSKB)/1024)
+		return 0
+	}
+	fmt.Fprintln(os.Stderr, "no group with id", id)
+	return 1
 }

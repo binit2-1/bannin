@@ -13,6 +13,8 @@ ColumnLayout {
     property var groups: []
     property string error: ""
 
+    signal stopRequested(string id)
+
     Layout.minimumWidth: Kirigami.Units.gridUnit * 20
     spacing: Kirigami.Units.smallSpacing
 
@@ -84,6 +86,15 @@ ColumnLayout {
             PC.Label {
                 text: full.fmt(modelData.rss_mb)
                 opacity: 0.8
+            }
+
+            PC.ToolButton {
+                icon.name: "process-stop"
+                display: PC.AbstractButton.IconOnly
+                text: "Stop " + modelData.name
+                PC.ToolTip.text: text
+                PC.ToolTip.visible: hovered
+                onClicked: full.stopRequested(modelData.id)
             }
         }
     }
