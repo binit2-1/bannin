@@ -45,6 +45,8 @@ PlasmoidItem {
     }
     function snooze(minutes) { run(bannin + " snooze " + Math.round(minutes)) }
     function startService() { run("systemctl --user start bannind.service") }
+    // `bannin config` creates the file with defaults if needed and prints its path.
+    function openSettings() { run("xdg-open \"$(" + bannin + " config)\"") }
 
     P5.DataSource {
         id: exec
@@ -115,5 +117,6 @@ PlasmoidItem {
         onStopRequested: id => root.stopGroup(id)
         onSnoozeRequested: minutes => root.snooze(minutes)
         onStartServiceRequested: root.startService()
+        onSettingsRequested: root.openSettings()
     }
 }

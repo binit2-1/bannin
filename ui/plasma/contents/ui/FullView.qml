@@ -18,6 +18,11 @@ ColumnLayout {
     signal stopRequested(string id)
     signal snoozeRequested(int minutes)
     signal startServiceRequested()
+    signal settingsRequested()
+
+    function clock(unix) {
+        return Qt.formatTime(new Date(unix * 1000), "hh:mm")
+    }
 
     LevelColors { id: colors }
 
@@ -228,6 +233,76 @@ ColumnLayout {
                     }
                 }
             }
+        }
+    }
+
+    // What Bannin did lately (or, in dry run, would have done).
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: (full.status.actions || []).length > 0
+        spacing: 2
+
+        Kirigami.Separator { Layout.fillWidth: true }
+        PC.Label { text: "Recent"; font.bold: true; opacity: 0.8 }
+
+        Repeater {
+            model: full.status.actions || []
+            delegate: RowLayout {
+                Layout.fillWidth: true
+                PC.Label {
+                    text: full.clock(modelData.t)
+                    opacity: 0.6
+                    font.features: { "tnum": 1 }
+                }
+                PC.Label {
+                    Layout.fillWidth: true
+                    text: modelData.text
+                    font.italic: !!modelData.dry_run
+                    opacity: modelData.dry_run ? 0.75 : 1
+                    elide: Text.ElideRight
+                }
+            }
+        }
+    }
+
+    // Footer: dry-run note, snooze and settings.
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: Kirigami.Units.smallSpacing
+
+        PC.Label {
+            Layout.fillWidth: true
+            elide: Text.ElideRight
+            opacity: 0.75
+            font: Kirigami.Theme.smallFont
+            text: {
+                if (!full.status.service) return ""
+                if (!full.status.auto_stop) return "Auto-stop off"
+                return full.status.dry_run ? "Dry run: auto-stop only logs" : "Auto-stop on"
+            }
+            PC.ToolTip.text: "Auto-stop acts only on dev tools (Metro, Gradle, emulator) left running "
+                             + "after their terminal closed, when RAM stays critical. "
+                             + "Change it in the settings file."
+            PC.ToolTip.visible: footerHover.hovered
+            HoverHandler { id: footerHover }
+        }
+
+        PC.ToolButton {
+            visible: !!full.status.service
+            icon.name: full.snoozed ? "notifications-disabled" : "notifications"
+            text: full.snoozed ? "Snoozed till " + full.clock(full.status.snoozed_until) : "Snooze 10 min"
+            onClicked: full.snoozeRequested(10)
+            PC.ToolTip.text: full.snoozed ? "Click to snooze 10 more minutes" : "Mute warnings for 10 minutes"
+            PC.ToolTip.visible: hovered
+        }
+
+        PC.ToolButton {
+            icon.name: "configure"
+            display: PC.AbstractButton.IconOnly
+            text: "Open settings file"
+            onClicked: full.settingsRequested()
+            PC.ToolTip.text: text
+            PC.ToolTip.visible: hovered
         }
     }
 
