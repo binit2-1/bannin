@@ -1,62 +1,106 @@
 import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.components as PC
+import org.kde.kirigami as Kirigami
 
 Item {
     id: compact
     property real memPct: 0
     property real swapPct: 0
+    property string level: "ok"     // "ok" | "elevated" | "high" | "critical" | "off"
+    property int warn: 0            // detached dev tools
+    property int ttfSec: 0          // seconds until RAM is full, 0 = not filling
     signal clicked()
 
-    Layout.minimumWidth: 152
-    Layout.preferredWidth: 152
+    // Theme colours, so light, dark and accent themes all work.
+    readonly property color okColor: Kirigami.Theme.highlightColor
+    readonly property color amber: Kirigami.Theme.neutralTextColor
+    readonly property color red: Kirigami.Theme.negativeTextColor
+    readonly property color orange: Kirigami.ColorUtils.linearInterpolation(amber, red, 0.5)
+    readonly property color trackColor: Qt.alpha(Kirigami.Theme.textColor, 0.15)
 
-    // one half of the widget: a bar with its name and percentage
+    function levelColor(l) {
+        switch (l) {
+        case "elevated": return amber
+        case "high":     return orange
+        case "critical": return red
+        case "off":      return Qt.alpha(Kirigami.Theme.textColor, 0.3)
+        }
+        return okColor
+    }
+
+    Layout.minimumWidth: row.implicitWidth + Kirigami.Units.smallSpacing * 2
+    Layout.preferredWidth: Layout.minimumWidth
+
+    // One bar with its name and percentage.
     component Meter: Rectangle {
         id: meter
         property string name
         property real pct: 0
-        property color baseColor
+        property bool known: true
+        property color fillColor
 
-        width: 70
-        height: 18
+        implicitWidth: 74
+        implicitHeight: 18
         radius: 5
-        color: "#3a3a3a"
+        color: compact.trackColor
         clip: true
 
         Rectangle {
             height: parent.height
             radius: parent.radius
-            width: parent.width * Math.min(meter.pct, 100) / 100
-            color: meter.pct > 85 ? "#c0392b"
-                 : meter.pct > 75 ? "#d68910"
-                 : meter.baseColor
+            width: meter.known ? parent.width * Math.min(meter.pct, 100) / 100 : 0
+            color: meter.fillColor
             Behavior on width { NumberAnimation { duration: 300 } }
+            Behavior on color { ColorAnimation { duration: 400 } }
         }
 
         PC.Label {
             anchors.centerIn: parent
-            text: meter.name + " " + Math.round(meter.pct) + "%"
-            color: "white"
+            text: meter.name + " " + (meter.known ? Math.round(meter.pct) + "%" : "--")
             font.pixelSize: 11
         }
     }
 
-    Row {
+    RowLayout {
+        id: row
         anchors.centerIn: parent
         spacing: 2
 
         Meter {
             name: "RAM"
             pct: compact.memPct
-            baseColor: "#27ae60"
+            known: compact.level !== "off"
+            fillColor: compact.levelColor(compact.level)
         }
 
         Meter {
             name: "Swap"
             pct: compact.swapPct
-            baseColor: "#3498db"
+            known: compact.level !== "off"
+            fillColor: compact.swapPct > 80 ? compact.orange : Qt.alpha(compact.okColor, 0.7)
         }
+
+        // Never colour alone: a count of warnings, or how long until full.
+        PC.Label {
+            id: badge
+            visible: text !== ""
+            Layout.leftMargin: 2
+            font.pixelSize: 11
+            font.bold: compact.level === "critical"
+            color: compact.level === "ok" ? Kirigami.Theme.textColor : compact.levelColor(compact.level)
+            text: compact.ttfSec > 0 && (compact.level === "critical" || compact.level === "high")
+                  ? "~" + compact.ttfSec + "s"
+                  : compact.warn > 0 ? "⚠" + compact.warn : ""
+        }
+    }
+
+    // A single gentle pulse when the level changes; nothing flashes otherwise.
+    onLevelChanged: if (level !== "ok" && level !== "off") pulse.restart()
+    SequentialAnimation {
+        id: pulse
+        NumberAnimation { target: row; property: "opacity"; to: 0.35; duration: 180 }
+        NumberAnimation { target: row; property: "opacity"; to: 1; duration: 320 }
     }
 
     MouseArea {

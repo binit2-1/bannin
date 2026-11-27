@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/binit2-1/bannin/internal/engine"
 	"github.com/binit2-1/bannin/internal/group"
 	"github.com/binit2-1/bannin/internal/icon"
 	"github.com/binit2-1/bannin/internal/ipc"
@@ -14,14 +15,6 @@ import (
 )
 
 const version = "0.0.1"
-
-type memJSON struct {
-	V       int     `json:"v"`
-	MemPct  float64 `json:"mem_pct"`
-	SwapPct float64 `json:"swap_pct"`
-	UsedGB  float64 `json:"used_gb"`
-	TotalGB float64 `json:"total_gb"`
-}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -32,32 +25,21 @@ func main() {
 	case "version":
 		fmt.Println("version: ", version)
 	case "mem":
-		m, err := sampler.ReadMem()
+		st, err := readStatus()
 		if err != nil {
-			fmt.Println("error:", err)
+			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
-		usedGB := float64(m.TotalKB-m.AvailableKB) / 1024 / 1024
-		totalGB := float64(m.TotalKB) / 1024 / 1024
-
 		if len(os.Args) > 2 && os.Args[2] == "--json" {
-			out := ipc.MemStatus{
-				V:       1,
-				MemPct:  m.UsedPercent(),
-				SwapPct: m.SwapUsedPercent(),
-				UsedGB:  usedGB,
-				TotalGB: totalGB,
-			}
-
-			json.NewEncoder(os.Stdout).Encode(out)
+			json.NewEncoder(os.Stdout).Encode(st)
 			return
 		}
-		fmt.Printf("RAM  %.1f%% used (%.1f of %.1f GB)\n",
-			m.UsedPercent(),
-			usedGB,
-			totalGB,
-		)
-		fmt.Printf("Swap %.1f%% used\n", m.SwapUsedPercent())
+		fmt.Printf("RAM  %.1f%% used (%.1f of %.1f GB)  level: %s\n",
+			st.MemPct, st.UsedGB, st.TotalGB, st.Level)
+		fmt.Printf("Swap %.1f%% used\n", st.SwapPct)
+		if st.TTFSec > 0 {
+			fmt.Printf("Full in about %ds\n", st.TTFSec)
+		}
 
 	case "top":
 		procs, err := sampler.ReadProcs()
@@ -190,4 +172,36 @@ func runStop(args []string) int {
 	}
 	fmt.Fprintln(os.Stderr, "no group with id", id)
 	return 1
+}
+
+// readStatus reads memory, pressure and the process list directly.
+func readStatus() (ipc.MemStatus, error) {
+	m, err := sampler.ReadMem()
+	if err != nil {
+		return ipc.MemStatus{}, err
+	}
+	st := ipc.MemStatus{
+		V:       1,
+		MemPct:  m.UsedPercent(),
+		SwapPct: m.SwapUsedPercent(),
+		UsedGB:  float64(m.TotalKB-m.AvailableKB) / 1024 / 1024,
+		TotalGB: float64(m.TotalKB) / 1024 / 1024,
+	}
+	if p, err := engine.ReadPSI(); err == nil {
+		st.PSI = p.SomeAvg10
+	}
+	st.Level = engine.DefaultThresholds.Classify(st.MemPct, st.PSI).String()
+
+	if procs, err := sampler.ReadProcs(); err == nil {
+		groups := group.Build(procs)
+		if len(groups) > 0 {
+			st.Biggest = groups[0].Name
+		}
+		for _, g := range groups {
+			if g.Detached {
+				st.Warn++
+			}
+		}
+	}
+	return st, nil
 }

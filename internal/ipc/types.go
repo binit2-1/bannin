@@ -7,6 +7,13 @@ type MemStatus struct {
 	SwapPct float64 `json:"swap_pct"`
 	UsedGB  float64 `json:"used_gb"`
 	TotalGB float64 `json:"total_gb"`
+
+	Level   string  `json:"level"`             // "ok", "elevated", "high", "critical"
+	PSI     float64 `json:"psi"`               // memory pressure, some avg10
+	TTFSec  int     `json:"ttf_s,omitempty"`   // seconds until RAM is full; 0 = not filling
+	Warn    int     `json:"warn"`              // detached dev-tool groups
+	Biggest string  `json:"biggest,omitempty"` // name of the biggest group
+	Service bool    `json:"service"`           // answered by bannind (not read directly)
 }
 
 // GroupInfo is one line in the popup.

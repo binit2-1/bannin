@@ -11,6 +11,24 @@ PlasmoidItem {
     property real totalGb: 0
     property var groups: []
     property string error: ""
+    property string level: "ok"
+    property int warn: 0
+    property int ttfSec: 0
+    property string biggest: ""
+
+    function fmtLevel(l) { return l.charAt(0).toUpperCase() + l.slice(1) }
+
+    toolTipMainText: level === "off"
+        ? "Bannin · RAM --"
+        : "RAM " + Math.round(memPct) + "% · " + usedGb.toFixed(1) + " / " + totalGb.toFixed(1) + " GB"
+    toolTipSubText: {
+        if (level === "off") return error || "Can't read memory"
+        let parts = ["Swap " + swapPct.toFixed(1) + "%", fmtLevel(level)]
+        if (ttfSec > 0) parts.push("full in ~" + ttfSec + "s")
+        if (warn > 0) parts.push(warn + " left running")
+        if (biggest) parts.push("biggest: " + biggest)
+        return parts.join(" · ")
+    }
 
     readonly property string cmdMem: "$HOME/.local/bin/bannin mem --json"
     readonly property string cmdList: "$HOME/.local/bin/bannin list --json"
@@ -35,6 +53,7 @@ PlasmoidItem {
             }
             if (data["exit code"] !== 0) {
                 root.error = data.stderr || "bannin failed"
+                if (source === root.cmdMem) root.level = "off"
                 return
             }
             try {
@@ -45,6 +64,10 @@ PlasmoidItem {
                     root.swapPct = s.swap_pct
                     root.usedGb = s.used_gb
                     root.totalGb = s.total_gb
+                    root.level = s.level || "ok"
+                    root.warn = s.warn || 0
+                    root.ttfSec = s.ttf_s || 0
+                    root.biggest = s.biggest || ""
                 } else if (source === root.cmdList) {
                     root.groups = s.groups
                 }
@@ -76,6 +99,9 @@ PlasmoidItem {
     compactRepresentation: CompactView {
         memPct: root.memPct
         swapPct: root.swapPct
+        level: root.level
+        warn: root.warn
+        ttfSec: root.ttfSec
         onClicked: root.expanded = !root.expanded
     }
 
