@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/binit2-1/bannin/internal/engine"
+	"github.com/binit2-1/bannin/internal/config"
 	"github.com/binit2-1/bannin/internal/ipc"
 	"github.com/binit2-1/bannin/internal/service"
 )
@@ -21,6 +21,7 @@ var version = "dev"
 func main() {
 	fake := flag.Bool("fake", false, "replay a made-up memory curve instead of reading /proc")
 	interval := flag.Duration("interval", time.Second, "how often to sample memory")
+	cfgPath := flag.String("config", config.Path(), "settings file")
 	flag.Parse()
 
 	// systemd's journal adds its own timestamps.
@@ -28,18 +29,19 @@ func main() {
 		log.SetFlags(0)
 	}
 
+	cfg, err := config.Load(*cfgPath)
+	if err != nil {
+		log.Printf("config %s: %v (using defaults)", *cfgPath, err)
+	}
+
 	// Stop cleanly on Ctrl+C or `systemctl stop`.
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	svc := service.New(service.Options{
-		Interval:   *interval,
-		Fake:       *fake,
-		Thresholds: engine.DefaultThresholds,
-	})
+	svc := service.New(service.Options{Interval: *interval, Fake: *fake, Config: cfg})
 
 	// Notifications are optional: without a notification server we still run.
-	alerts, err := service.NewAlerts(*fake)
+	alerts, err := service.NewAlerts(*fake, svc.Actions, cfg.Notify)
 	if err != nil {
 		log.Printf("notifications off: %v", err)
 		alerts = nil
@@ -48,18 +50,37 @@ func main() {
 		svc.OnLevel = alerts.OnLevel
 	}
 
+	// `systemctl --user reload bannind` sends SIGHUP: re-read the config.
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		for range hup {
+			c, err := config.Load(*cfgPath)
+			if err != nil {
+				log.Printf("config %s: %v (keeping current settings)", *cfgPath, err)
+				continue
+			}
+			svc.SetThresholds(c.Thresholds)
+			svc.Auto.SetConfig(c.AutoStop)
+			if alerts != nil {
+				alerts.SetConfig(c.Notify)
+			}
+			log.Printf("config reloaded (auto-stop %v, dry run %v)", c.AutoStop.Enabled, c.AutoStop.DryRun)
+		}
+	}()
+
 	// The socket the CLI and widget talk to.
-	sock := ipc.SocketPath()
 	sockErr := make(chan error, 1)
 	go func() {
-		err := service.NewServer(svc, alerts).Listen(ctx, sock)
+		err := service.NewServer(svc, alerts).Listen(ctx, ipc.SocketPath())
 		if err != nil {
 			cancel()
 		}
 		sockErr <- err
 	}()
 
-	log.Printf("bannind %s started (fake=%v)", version, *fake)
+	a := cfg.AutoStop
+	log.Printf("bannind %s started (fake=%v, auto-stop=%v, dry-run=%v)", version, *fake, a.Enabled, a.DryRun)
 	if err := svc.Run(ctx); err != nil {
 		log.Fatal(err)
 	}

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,7 +101,7 @@ func (s *Server) dispatch(req ipc.Request) any {
 	case "stop":
 		res := report.Stop(req.ID, req.Force)
 		if res.OK {
-			log.Print(res.Message + " (by request)")
+			s.svc.Actions.Add(capitalize(res.Message), false)
 			s.invalidate()
 		}
 		return res
@@ -138,6 +139,10 @@ func (s *Server) status() ipc.MemStatus {
 	for _, h := range s.svc.History(60 * time.Second) {
 		out.History = append(out.History, h.MemPct)
 	}
+	auto := s.svc.Auto.Config()
+	out.AutoStop = auto.Enabled
+	out.DryRun = auto.Enabled && (auto.DryRun || st.Fake)
+	out.Actions = s.svc.Actions.Recent(5)
 	if s.alerts != nil {
 		if t := s.alerts.SnoozedUntil(); t.After(time.Now()) {
 			out.SnoozedUntil = t.Unix()
@@ -169,4 +174,11 @@ func (s *Server) invalidate() {
 	s.mu.Lock()
 	s.groupsAt = time.Time{}
 	s.mu.Unlock()
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }

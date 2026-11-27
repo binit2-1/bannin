@@ -16,9 +16,19 @@ type MemStatus struct {
 	Service bool    `json:"service"`           // answered by bannind (not read directly)
 
 	// Only filled in by the service:
-	History      []float64 `json:"history,omitempty"`       // RAM % for the last 60 s, oldest first
-	SnoozedUntil int64     `json:"snoozed_until,omitempty"` // unix seconds
-	Fake         bool      `json:"fake,omitempty"`
+	History      []float64    `json:"history,omitempty"`       // RAM % for the last 60 s, oldest first
+	SnoozedUntil int64        `json:"snoozed_until,omitempty"` // unix seconds
+	Fake         bool         `json:"fake,omitempty"`
+	AutoStop     bool         `json:"auto_stop"`
+	DryRun       bool         `json:"dry_run"`
+	Actions      []ActionInfo `json:"actions,omitempty"` // newest first
+}
+
+// ActionInfo is one thing Bannin did, or in dry run would have done.
+type ActionInfo struct {
+	Time   int64  `json:"t"` // unix seconds
+	Text   string `json:"text"`
+	DryRun bool   `json:"dry_run,omitempty"`
 }
 
 // GroupInfo is one line in the popup.

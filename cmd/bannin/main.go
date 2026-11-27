@@ -7,7 +7,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/binit2-1/bannin/internal/engine"
+	"github.com/binit2-1/bannin/internal/config"
 	"github.com/binit2-1/bannin/internal/icon"
 	"github.com/binit2-1/bannin/internal/ipc"
 	"github.com/binit2-1/bannin/internal/report"
@@ -102,6 +102,19 @@ func main() {
 	case "stop":
 		os.Exit(runStop(os.Args[2:]))
 
+	case "config":
+		// Print the settings file path, creating it with the defaults if missing.
+		path := config.Path()
+		wrote, err := config.WriteExample(path)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		if wrote {
+			fmt.Fprintln(os.Stderr, "created", path)
+		}
+		fmt.Println(path)
+
 	default:
 		fmt.Println("unknown command:", os.Args[1])
 		usage()
@@ -119,6 +132,7 @@ func usage() {
 	fmt.Println("  list [--all] [--json]  processes grouped by app")
 	fmt.Println("  stop <id> [--force]    stop a group from `list --json`")
 	fmt.Println("  snooze [minutes]       mute warnings (needs bannind)")
+	fmt.Println("  config                 print (and create) the settings file path")
 }
 
 // truncate shortens s to n characters, adding … if it was cut.
@@ -167,7 +181,8 @@ func getStatus() (ipc.MemStatus, error) {
 	var st ipc.MemStatus
 	err := ipc.Call(ipc.Request{Method: "status"}, &st)
 	if errors.Is(err, ipc.ErrNoService) {
-		return report.Status(engine.DefaultThresholds)
+		cfg, _ := config.Load(config.Path())
+		return report.Status(cfg.Thresholds)
 	}
 	return st, err
 }

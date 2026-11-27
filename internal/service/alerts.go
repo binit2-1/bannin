@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/binit2-1/bannin/internal/config"
 	"github.com/binit2-1/bannin/internal/engine"
 	"github.com/binit2-1/bannin/internal/group"
 	"github.com/binit2-1/bannin/internal/notify"
@@ -18,23 +19,36 @@ const SnoozeFor = 10 * time.Minute
 
 // Alerts turns level changes into desktop notifications.
 type Alerts struct {
-	n    *notify.Notifier
-	fake bool
+	n       *notify.Notifier
+	fake    bool
+	actions *ActionLog
 
-	mu     sync.Mutex
-	policy *notify.Policy
-	target *group.Group // what the Stop button in the current popup stops
+	mu      sync.Mutex
+	enabled bool
+	policy  *notify.Policy
+	target  *group.Group // what the Stop button in the current popup stops
 }
 
 // NewAlerts connects to the notification server.
-func NewAlerts(fake bool) (*Alerts, error) {
+func NewAlerts(fake bool, actions *ActionLog, cfg config.Notify) (*Alerts, error) {
 	n, err := notify.New()
 	if err != nil {
 		return nil, err
 	}
-	a := &Alerts{n: n, fake: fake, policy: notify.DefaultPolicy()}
+	a := &Alerts{n: n, fake: fake, actions: actions, policy: notify.DefaultPolicy()}
+	a.SetConfig(cfg)
 	go a.handleActions()
 	return a, nil
+}
+
+// SetConfig applies the [notify] settings (used on reload).
+func (a *Alerts) SetConfig(c config.Notify) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.enabled = c.Enabled
+	if c.CooldownMinutes > 0 {
+		a.policy.Cooldown = time.Duration(c.CooldownMinutes) * time.Minute
+	}
 }
 
 // Snooze mutes notifications for d.
@@ -55,7 +69,7 @@ func (a *Alerts) SnoozedUntil() time.Time {
 // OnLevel is hooked up to Service.OnLevel.
 func (a *Alerts) OnLevel(old, new engine.Level, st Status) {
 	a.mu.Lock()
-	ok := a.policy.Should(old, new, time.Now())
+	ok := a.enabled && a.policy.Should(old, new, time.Now())
 	a.mu.Unlock()
 	if !ok {
 		return
@@ -144,7 +158,11 @@ func (a *Alerts) handleActions() {
 				continue
 			}
 			alive := stop.Targets(t.Targets(), false)
-			log.Printf("stopped %s from notification (%d still running)", t.Name, len(alive))
+			text := fmt.Sprintf("Stopped %s (%.1f GB) from notification", t.Name, float64(t.RSSKB)/1024/1024)
+			if len(alive) > 0 {
+				text += fmt.Sprintf(", %d process(es) still running", len(alive))
+			}
+			a.actions.Add(text, false)
 		}
 	}
 }

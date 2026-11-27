@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/binit2-1/bannin/internal/config"
 	"github.com/binit2-1/bannin/internal/engine"
 	"github.com/binit2-1/bannin/internal/history"
 	"github.com/binit2-1/bannin/internal/sampler"
@@ -15,9 +16,9 @@ import (
 
 // Options configure a Service.
 type Options struct {
-	Interval   time.Duration
-	Fake       bool // replay engine.FakeCurve instead of reading /proc
-	Thresholds engine.Thresholds
+	Interval time.Duration
+	Fake     bool // replay engine.FakeCurve instead of reading /proc
+	Config   config.Config
 }
 
 // Status is a snapshot of what the service knows right now.
@@ -41,6 +42,9 @@ type Service struct {
 	tracker engine.Tracker
 	status  Status
 
+	Actions *ActionLog
+	Auto    *AutoStopper
+
 	// OnLevel is called (from the loop goroutine) when the level changes.
 	OnLevel func(old, new engine.Level, st Status)
 }
@@ -50,11 +54,21 @@ func New(opts Options) *Service {
 	if opts.Interval <= 0 {
 		opts.Interval = time.Second
 	}
+	actions := &ActionLog{}
 	return &Service{
 		opts:    opts,
 		hist:    history.New(120),
-		tracker: engine.Tracker{T: opts.Thresholds},
+		tracker: engine.Tracker{T: opts.Config.Thresholds},
+		Actions: actions,
+		Auto:    &AutoStopper{log: actions, fake: opts.Fake, cfg: opts.Config.AutoStop},
 	}
+}
+
+// SetThresholds changes the level lines (used on reload).
+func (s *Service) SetThresholds(t engine.Thresholds) {
+	s.mu.Lock()
+	s.tracker.T = t
+	s.mu.Unlock()
 }
 
 // Run samples until ctx is cancelled.
@@ -131,4 +145,5 @@ func (s *Service) tick(now time.Time) {
 			s.OnLevel(old, lvl, st)
 		}
 	}
+	s.Auto.Check(now, lvl)
 }
