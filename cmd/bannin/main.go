@@ -2,16 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
 
 	"github.com/binit2-1/bannin/internal/engine"
-	"github.com/binit2-1/bannin/internal/group"
 	"github.com/binit2-1/bannin/internal/icon"
 	"github.com/binit2-1/bannin/internal/ipc"
+	"github.com/binit2-1/bannin/internal/report"
 	"github.com/binit2-1/bannin/internal/sampler"
-	"github.com/binit2-1/bannin/internal/stop"
 )
 
 const version = "0.0.1"
@@ -25,7 +25,7 @@ func main() {
 	case "version":
 		fmt.Println("version: ", version)
 	case "mem":
-		st, err := readStatus()
+		st, err := getStatus()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
@@ -60,54 +60,45 @@ func main() {
 		}
 
 	case "list":
-		procs, err := sampler.ReadProcs()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
-		}
-
-		minMB := 100.0
-		asJSON := false
+		all, asJSON := false, false
 		for _, a := range os.Args[2:] {
 			switch a {
 			case "--all":
-				minMB = 0
+				all = true
 			case "--json":
 				asJSON = true
 			}
 		}
-
-		icons := icon.New(icon.DefaultDirs()...)
-		infos := make([]ipc.GroupInfo, 0) // empty list, not nil, so JSON gives [] not null
-		for _, g := range group.Build(procs) {
-			mb := float64(g.RSSKB) / 1024
-			if mb < minMB {
-				continue
-			}
-			infos = append(infos, ipc.GroupInfo{
-				ID:       g.ID,
-				Name:     g.Name,
-				Kind:     g.Kind,
-				RSSMB:    mb,
-				PIDs:     g.PIDs,
-				Detached: g.Detached,
-				Icon:     icons.For(g.Kind, g.Name),
-			})
+		list, err := getList(all)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
 		}
-
 		if asJSON {
-			json.NewEncoder(os.Stdout).Encode(ipc.ListResponse{V: 1, Groups: infos})
+			json.NewEncoder(os.Stdout).Encode(list)
 			return
 		}
-
 		fmt.Printf("%-2s %-30s %9s %5s\n", "", "GROUP", "RSS(MB)", "PROCS")
-		for _, g := range infos {
+		for _, g := range list.Groups {
 			mark := ""
 			if g.Detached {
 				mark = "⚠"
 			}
 			fmt.Printf("%-2s %-30s %9.0f %5d\n", mark, g.Name, g.RSSMB, len(g.PIDs))
 		}
+
+	case "snooze":
+		mins := 10
+		if len(os.Args) > 2 {
+			fmt.Sscan(os.Args[2], &mins)
+		}
+		var res ipc.Result
+		if err := ipc.Call(ipc.Request{Method: "snooze", Minutes: mins}, &res); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		fmt.Println(res.Message)
+
 	case "stop":
 		os.Exit(runStop(os.Args[2:]))
 
@@ -127,6 +118,7 @@ func usage() {
 	fmt.Println("  top              biggest processes")
 	fmt.Println("  list [--all] [--json]  processes grouped by app")
 	fmt.Println("  stop <id> [--force]    stop a group from `list --json`")
+	fmt.Println("  snooze [minutes]       mute warnings (needs bannind)")
 }
 
 // truncate shortens s to n characters, adding … if it was cut.
@@ -139,6 +131,7 @@ func truncate(s string, n int) string {
 }
 
 // runStop stops the group with the given ID and returns the exit code.
+// The service does it when running; otherwise we do it ourselves.
 func runStop(args []string) int {
 	id, force := "", false
 	for _, a := range args {
@@ -153,55 +146,46 @@ func runStop(args []string) int {
 		return 2
 	}
 
-	procs, err := sampler.ReadProcs()
+	var res ipc.Result
+	err := ipc.Call(ipc.Request{Method: "stop", ID: id, Force: force}, &res)
+	if errors.Is(err, ipc.ErrNoService) {
+		res, err = report.Stop(id, force), nil
+	}
+	if err == nil && res.Error != "" {
+		err = errors.New(res.Error)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	for _, g := range group.Build(procs) {
-		if g.ID != id {
-			continue
-		}
-		alive := stop.Group(g.PIDs, force)
-		if len(alive) > 0 {
-			fmt.Fprintf(os.Stderr, "%s: %d process(es) still running\n", g.Name, len(alive))
-			return 1
-		}
-		fmt.Printf("stopped %s (%.0f MB)\n", g.Name, float64(g.RSSKB)/1024)
-		return 0
-	}
-	fmt.Fprintln(os.Stderr, "no group with id", id)
-	return 1
+	fmt.Println(res.Message)
+	return 0
 }
 
-// readStatus reads memory, pressure and the process list directly.
-func readStatus() (ipc.MemStatus, error) {
-	m, err := sampler.ReadMem()
-	if err != nil {
-		return ipc.MemStatus{}, err
+// getStatus asks bannind, or reads /proc directly if it is not running.
+func getStatus() (ipc.MemStatus, error) {
+	var st ipc.MemStatus
+	err := ipc.Call(ipc.Request{Method: "status"}, &st)
+	if errors.Is(err, ipc.ErrNoService) {
+		return report.Status(engine.DefaultThresholds)
 	}
-	st := ipc.MemStatus{
-		V:       1,
-		MemPct:  m.UsedPercent(),
-		SwapPct: m.SwapUsedPercent(),
-		UsedGB:  float64(m.TotalKB-m.AvailableKB) / 1024 / 1024,
-		TotalGB: float64(m.TotalKB) / 1024 / 1024,
-	}
-	if p, err := engine.ReadPSI(); err == nil {
-		st.PSI = p.SomeAvg10
-	}
-	st.Level = engine.DefaultThresholds.Classify(st.MemPct, st.PSI).String()
+	return st, err
+}
 
-	if procs, err := sampler.ReadProcs(); err == nil {
-		groups := group.Build(procs)
-		if len(groups) > 0 {
-			st.Biggest = groups[0].Name
-		}
-		for _, g := range groups {
-			if g.Detached {
-				st.Warn++
-			}
-		}
+// getList asks bannind, or reads /proc directly if it is not running.
+func getList(all bool) (ipc.ListResponse, error) {
+	var list ipc.ListResponse
+	err := ipc.Call(ipc.Request{Method: "list", All: all}, &list)
+	if !errors.Is(err, ipc.ErrNoService) {
+		return list, err
 	}
-	return st, nil
+	groups, err := report.Groups()
+	if err != nil {
+		return list, err
+	}
+	minMB := 100.0
+	if all {
+		minMB = 0
+	}
+	return report.List(groups, minMB, icon.New(icon.DefaultDirs()...)), nil
 }

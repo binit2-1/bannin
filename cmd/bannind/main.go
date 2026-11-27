@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/binit2-1/bannin/internal/engine"
+	"github.com/binit2-1/bannin/internal/ipc"
 	"github.com/binit2-1/bannin/internal/service"
 )
 
@@ -38,16 +39,32 @@ func main() {
 	})
 
 	// Notifications are optional: without a notification server we still run.
-	if alerts, err := service.NewAlerts(*fake); err != nil {
+	alerts, err := service.NewAlerts(*fake)
+	if err != nil {
 		log.Printf("notifications off: %v", err)
+		alerts = nil
 	} else {
 		defer alerts.Close()
 		svc.OnLevel = alerts.OnLevel
 	}
 
+	// The socket the CLI and widget talk to.
+	sock := ipc.SocketPath()
+	sockErr := make(chan error, 1)
+	go func() {
+		err := service.NewServer(svc, alerts).Listen(ctx, sock)
+		if err != nil {
+			cancel()
+		}
+		sockErr <- err
+	}()
+
 	log.Printf("bannind %s started (fake=%v)", version, *fake)
 	if err := svc.Run(ctx); err != nil {
 		log.Fatal(err)
+	}
+	if err := <-sockErr; err != nil {
+		log.Fatalf("socket: %v", err)
 	}
 	log.Print("bannind stopped")
 }

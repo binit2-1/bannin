@@ -14,6 +14,11 @@ type MemStatus struct {
 	Warn    int     `json:"warn"`              // detached dev-tool groups
 	Biggest string  `json:"biggest,omitempty"` // name of the biggest group
 	Service bool    `json:"service"`           // answered by bannind (not read directly)
+
+	// Only filled in by the service:
+	History      []float64 `json:"history,omitempty"`       // RAM % for the last 60 s, oldest first
+	SnoozedUntil int64     `json:"snoozed_until,omitempty"` // unix seconds
+	Fake         bool      `json:"fake,omitempty"`
 }
 
 // GroupInfo is one line in the popup.
@@ -25,6 +30,13 @@ type GroupInfo struct {
 	PIDs     []int   `json:"pids"`
 	Detached bool    `json:"detached"`
 	Icon     string  `json:"icon"` // theme icon name, or "bundled:<name>"
+}
+
+// Result answers stop and snooze requests.
+type Result struct {
+	OK      bool   `json:"ok"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 // ListResponse is the output of `bannin list --json`.
