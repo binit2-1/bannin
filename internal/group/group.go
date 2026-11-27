@@ -19,6 +19,8 @@ type Group struct {
 	RSSKB    uint64
 	PIDs     []int
 	Starts   []uint64 // start time of each PID, same order
+	Cmd      string   // command line of the biggest process
+	topKB    uint64   // RSS of that process
 	Detached bool     // a dev-tool process with no terminal and no real parent
 }
 
@@ -41,6 +43,9 @@ func Build(procs []sampler.Proc) []Group {
 		g.RSSKB += p.RSSKB
 		g.PIDs = append(g.PIDs, p.PID)
 		g.Starts = append(g.Starts, p.Start)
+		if p.RSSKB > g.topKB {
+			g.topKB, g.Cmd = p.RSSKB, p.Cmd
+		}
 
 		if kind != "other" && isDetached(p, byPID) {
 			g.Detached = true

@@ -75,6 +75,7 @@ func List(groups []group.Group, minMB float64, icons *icon.Resolver) ipc.ListRes
 			PIDs:     g.PIDs,
 			Detached: g.Detached,
 			Icon:     icons.For(g.Kind, g.Name),
+			Cmd:      shorten(g.Cmd, 300),
 		})
 	}
 	return ipc.ListResponse{V: 1, Groups: infos}
@@ -96,4 +97,12 @@ func Stop(id string, force bool) ipc.Result {
 		return ipc.Result{OK: true, Message: fmt.Sprintf("stopped %s (%.0f MB)", g.Name, float64(g.RSSKB)/1024)}
 	}
 	return ipc.Result{Error: "no group with id " + id}
+}
+
+func shorten(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }

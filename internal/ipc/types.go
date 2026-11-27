@@ -39,7 +39,8 @@ type GroupInfo struct {
 	RSSMB    float64 `json:"rss_mb"`
 	PIDs     []int   `json:"pids"`
 	Detached bool    `json:"detached"`
-	Icon     string  `json:"icon"` // theme icon name, or "bundled:<name>"
+	Icon     string  `json:"icon"`          // theme icon name, or "bundled:<name>"
+	Cmd      string  `json:"cmd,omitempty"` // command line of its biggest process
 }
 
 // Result answers stop and snooze requests.

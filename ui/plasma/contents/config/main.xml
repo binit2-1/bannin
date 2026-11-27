@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+  <group name="General">
+    <entry name="showSwap" type="Bool">
+      <label>Show the swap bar in the panel</label>
+      <default>true</default>
+    </entry>
+    <entry name="minMb" type="Int">
+      <label>Hide apps using less than this many MB</label>
+      <default>100</default>
+    </entry>
+    <entry name="pollSeconds" type="Int">
+      <label>Seconds between updates</label>
+      <default>2</default>
+    </entry>
+  </group>
+</kcfg>

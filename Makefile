@@ -1,5 +1,5 @@
 .PHONY: run build fmt vet test clean install service-install service-uninstall \
-        widget-test widget-install widget-refresh fake
+        widget-test widget-popup widget-install widget-refresh fake
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -44,10 +44,14 @@ service-uninstall:
 	@systemctl --user daemon-reload
 
 widget-test:
-	@plasmoidviewer -a ui/plasma -l topedge -f horizontal
+	@QT_FORCE_STDERR_LOGGING=1 plasmoidviewer -a ui/plasma -l topedge -f horizontal
 
 widget-install:
 	@kpackagetool6 -t Plasma/Applet -i ui/plasma || kpackagetool6 -t Plasma/Applet -u ui/plasma
 
 widget-refresh: widget-install
 	@systemctl --user restart plasma-plasmashell
+
+# Popup in a window (planar), with QML errors on the terminal.
+widget-popup:
+	@QT_FORCE_STDERR_LOGGING=1 plasmoidviewer -a ui/plasma

@@ -10,12 +10,16 @@ Item {
     property string level: "ok"     // "ok" | "elevated" | "high" | "critical" | "off"
     property int warn: 0            // detached dev tools
     property int ttfSec: 0          // seconds until RAM is full, 0 = not filling
+    property bool showSwap: true
+    property bool vertical: false   // on a vertical panel: stack, and drop the names
     signal clicked()
 
     LevelColors { id: colors }
 
-    Layout.minimumWidth: row.implicitWidth + Kirigami.Units.smallSpacing * 2
+    Layout.minimumWidth: vertical ? 0 : row.implicitWidth + Kirigami.Units.smallSpacing * 2
     Layout.preferredWidth: Layout.minimumWidth
+    Layout.minimumHeight: vertical ? row.implicitHeight + Kirigami.Units.smallSpacing * 2 : 0
+    Layout.preferredHeight: Layout.minimumHeight
 
     // One bar with its name and percentage.
     component Meter: Rectangle {
@@ -25,8 +29,8 @@ Item {
         property bool known: true
         property color fillColor
 
-        implicitWidth: 74
-        implicitHeight: 18
+        implicitWidth: compact.vertical ? Math.max(30, compact.width - 4) : 74
+        implicitHeight: compact.vertical ? 16 : 18
         radius: 5
         color: colors.track
         clip: true
@@ -42,15 +46,17 @@ Item {
 
         PC.Label {
             anchors.centerIn: parent
-            text: meter.name + " " + (meter.known ? Math.round(meter.pct) + "%" : "--")
-            font.pixelSize: 11
+            text: (compact.vertical ? "" : meter.name + " ") + (meter.known ? Math.round(meter.pct) + "%" : "--")
+            font.pixelSize: compact.vertical ? 10 : 11
         }
     }
 
-    RowLayout {
+    GridLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 2
+        flow: compact.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+        rowSpacing: 2
+        columnSpacing: 2
 
         Meter {
             name: "RAM"
@@ -60,6 +66,7 @@ Item {
         }
 
         Meter {
+            visible: compact.showSwap
             name: "Swap"
             pct: compact.swapPct
             known: compact.level !== "off"
@@ -70,8 +77,9 @@ Item {
         PC.Label {
             id: badge
             visible: text !== ""
-            Layout.leftMargin: 2
-            font.pixelSize: 11
+            Layout.leftMargin: compact.vertical ? 0 : 2
+            Layout.alignment: Qt.AlignHCenter
+            font.pixelSize: compact.vertical ? 10 : 11
             font.bold: compact.level === "critical"
             color: compact.level === "ok" ? Kirigami.Theme.textColor : colors.of(compact.level)
             text: compact.ttfSec > 0 && (compact.level === "critical" || compact.level === "high")

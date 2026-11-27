@@ -1,5 +1,6 @@
 import QtQuick
 import org.kde.plasma.plasmoid
+import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasma5support as P5
 
 PlasmoidItem {
@@ -30,7 +31,9 @@ PlasmoidItem {
 
     readonly property string bannin: "$HOME/.local/bin/bannin"
     readonly property string cmdMem: bannin + " mem --json"
-    readonly property string cmdList: bannin + " list --json"
+    // --all: the popup filters by the "Hide apps under" setting itself.
+    readonly property string cmdList: bannin + " list --all --json"
+    readonly property int pollMs: Math.max(1, Plasmoid.configuration.pollSeconds) * 1000
 
     // Commands whose output we don't parse: we only refresh afterwards.
     property var pending: ({})
@@ -84,7 +87,7 @@ PlasmoidItem {
 
     // The bar: always on
     Timer {
-        interval: 2000
+        interval: root.pollMs
         running: true
         repeat: true
         triggeredOnStart: true
@@ -93,7 +96,7 @@ PlasmoidItem {
 
     // The process list: only while the popup is open
     Timer {
-        interval: 2000
+        interval: root.pollMs
         running: root.expanded
         repeat: true
         triggeredOnStart: true
@@ -106,6 +109,8 @@ PlasmoidItem {
         level: root.level
         warn: root.status.warn || 0
         ttfSec: root.status.ttf_s || 0
+        showSwap: Plasmoid.configuration.showSwap
+        vertical: Plasmoid.formFactor === PlasmaCore.Types.Vertical
         onClicked: root.expanded = !root.expanded
     }
 
@@ -113,6 +118,7 @@ PlasmoidItem {
         status: root.status
         level: root.level
         groups: root.groups
+        minMb: Plasmoid.configuration.minMb
         error: root.error
         onStopRequested: id => root.stopGroup(id)
         onSnoozeRequested: minutes => root.snooze(minutes)

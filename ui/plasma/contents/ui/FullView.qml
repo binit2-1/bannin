@@ -10,6 +10,7 @@ ColumnLayout {
     property string level: "off"
     property var groups: []
     property string error: ""
+    property real minMb: 100
 
     readonly property real memPct: status.mem_pct || 0
     readonly property real swapPct: status.swap_pct || 0
@@ -32,19 +33,6 @@ ColumnLayout {
     Layout.minimumHeight: Kirigami.Units.gridUnit * 18
     Layout.preferredHeight: Kirigami.Units.gridUnit * 30
     spacing: Kirigami.Units.smallSpacing
-
-    // "bundled:react" is an SVG shipped with the widget; anything else is a theme icon.
-    function iconFor(name) {
-        if (!name) return "application-x-executable"
-        return name.startsWith("bundled:")
-            ? Qt.resolvedUrl("../icons/" + name.slice(8) + ".svg")
-            : name
-    }
-
-    // 1536 MB becomes "1.5 GB"
-    function fmt(mb) {
-        return mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : Math.round(mb) + " MB"
-    }
 
     // Title and a level chip: colour plus a word, never colour alone.
     RowLayout {
@@ -163,77 +151,13 @@ ColumnLayout {
 
     Kirigami.Separator { Layout.fillWidth: true }
 
-    Kirigami.Heading {
-        text: "What's using memory"
-        level: 4
-    }
-
-    PC.Label {
-        visible: groups.length === 0
-        text: "Nothing above 100 MB"
-        opacity: 0.7
-    }
-
-    // Only the process list scrolls; the RAM and swap bars stay in view.
-    PC.ScrollView {
-        id: scroll
+    GroupList {
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.minimumHeight: Kirigami.Units.gridUnit * 6
-        visible: groups.length > 0
-        PC.ScrollBar.horizontal.policy: PC.ScrollBar.AlwaysOff
-
-        ColumnLayout {
-            id: list
-            width: scroll.availableWidth
-            spacing: Kirigami.Units.smallSpacing
-
-            Repeater {
-                model: full.groups
-
-                delegate: RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Kirigami.Units.smallSpacing
-
-                    // App icon, with a small warning badge for detached dev tools
-                    Kirigami.Icon {
-                        Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
-                        Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
-                        source: full.iconFor(modelData.icon)
-                        fallback: "application-x-executable"
-
-                        Kirigami.Icon {
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            width: parent.width / 2
-                            height: width
-                            source: "dialog-warning"
-                            visible: modelData.detached
-                        }
-                    }
-
-                    PC.Label {
-                        Layout.fillWidth: true
-                        text: modelData.name
-                        elide: Text.ElideRight
-                    }
-
-                    PC.Label {
-                        text: full.fmt(modelData.rss_mb)
-                        opacity: 0.8
-                    }
-
-                    PC.ToolButton {
-                        icon.name: "process-stop"
-                        display: PC.AbstractButton.IconOnly
-                        text: "Stop " + modelData.name
-                        PC.ToolTip.text: text
-                        PC.ToolTip.visible: hovered
-                        onClicked: full.stopRequested(modelData.id)
-                    }
-                }
-            }
-        }
+        groups: full.groups
+        minMb: full.minMb
+        onStopRequested: id => full.stopRequested(id)
     }
 
     // What Bannin did lately (or, in dry run, would have done).
