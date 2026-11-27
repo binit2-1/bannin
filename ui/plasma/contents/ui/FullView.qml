@@ -6,14 +6,20 @@ import org.kde.kirigami as Kirigami
 ColumnLayout {
     id: full
 
-    property real memPct: 0
-    property real swapPct: 0
-    property real usedGb: 0
-    property real totalGb: 0
+    property var status: ({})
+    property string level: "off"
     property var groups: []
     property string error: ""
 
+    readonly property real memPct: status.mem_pct || 0
+    readonly property real swapPct: status.swap_pct || 0
+    readonly property bool snoozed: (status.snoozed_until || 0) * 1000 > Date.now()
+
     signal stopRequested(string id)
+    signal snoozeRequested(int minutes)
+    signal startServiceRequested()
+
+    LevelColors { id: colors }
 
     // Plasma sizes the popup from these; the user can still drag it bigger.
     Layout.minimumWidth: Kirigami.Units.gridUnit * 20
@@ -35,26 +41,119 @@ ColumnLayout {
         return mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : Math.round(mb) + " MB"
     }
 
-    Kirigami.Heading {
-        text: "Bannin"
-        level: 3
+    // Title and a level chip: colour plus a word, never colour alone.
+    RowLayout {
+        Layout.fillWidth: true
+        Kirigami.Heading {
+            text: "Bannin"
+            level: 3
+            Layout.fillWidth: true
+        }
+        Rectangle {
+            radius: height / 2
+            color: Qt.alpha(colors.of(full.level), 0.18)
+            implicitHeight: chip.implicitHeight + Kirigami.Units.smallSpacing
+            implicitWidth: chip.implicitWidth + Kirigami.Units.largeSpacing * 2
+            Row {
+                id: chip
+                anchors.centerIn: parent
+                spacing: Kirigami.Units.smallSpacing
+                Rectangle {
+                    width: 8; height: 8; radius: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: colors.of(full.level)
+                }
+                PC.Label { text: colors.label(full.level) }
+            }
+        }
     }
 
-    PC.Label {
-        text: "RAM  " + usedGb.toFixed(1) + " / " + totalGb.toFixed(1)
-              + " GB  (" + memPct.toFixed(1) + "%)"
-    }
-    PC.ProgressBar {
+    Kirigami.InlineMessage {
         Layout.fillWidth: true
-        from: 0; to: 100
-        value: memPct
+        visible: full.level !== "off" && !full.status.service
+        type: Kirigami.MessageType.Warning
+        text: "The Bannin service isn't running, so you won't be warned before a freeze."
+        actions: [
+            Kirigami.Action {
+                text: "Start"
+                icon.name: "media-playback-start"
+                onTriggered: full.startServiceRequested()
+            }
+        ]
     }
 
-    PC.Label { text: "Swap " + swapPct.toFixed(1) + "%" }
-    PC.ProgressBar {
+    Kirigami.InlineMessage {
         Layout.fillWidth: true
-        from: 0; to: 100
-        value: swapPct
+        visible: !!full.status.fake
+        type: Kirigami.MessageType.Information
+        text: "Test mode: the service is replaying a made-up memory curve."
+    }
+
+    // One bar per resource: name and numbers above, bar below.
+    component Bar: ColumnLayout {
+        property string name
+        property string detail
+        property real pct
+        property color barColor
+        Layout.fillWidth: true
+        spacing: 2
+        RowLayout {
+            Layout.fillWidth: true
+            PC.Label { text: name; font.bold: true; Layout.fillWidth: true }
+            PC.Label { text: detail; opacity: 0.8 }
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: 6
+            radius: 3
+            color: colors.track
+            Rectangle {
+                height: parent.height
+                radius: parent.radius
+                width: parent.width * Math.min(pct, 100) / 100
+                color: barColor
+                Behavior on width { NumberAnimation { duration: 300 } }
+                Behavior on color { ColorAnimation { duration: 400 } }
+            }
+        }
+    }
+
+    Bar {
+        name: "RAM"
+        pct: full.memPct
+        barColor: colors.of(full.level)
+        detail: full.level === "off" ? "--"
+              : (full.status.used_gb || 0).toFixed(1) + " / " + (full.status.total_gb || 0).toFixed(1)
+                + " GB  (" + Math.round(full.memPct) + "%)"
+    }
+
+    Bar {
+        name: "Swap"
+        pct: full.swapPct
+        barColor: full.swapPct > 80 ? colors.high : Qt.alpha(colors.ok, 0.7)
+        detail: full.level === "off" ? "--" : full.swapPct.toFixed(1) + "%"
+    }
+
+    // The last minute, from the service's history.
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: (full.status.history || []).length > 1
+        spacing: 0
+        RowLayout {
+            Layout.fillWidth: true
+            PC.Label { text: "Last 60 s"; opacity: 0.7; font: Kirigami.Theme.smallFont; Layout.fillWidth: true }
+            PC.Label {
+                visible: !!full.status.ttf_s
+                text: "~" + full.status.ttf_s + " s until full"
+                color: colors.of(full.level)
+                font.bold: true
+            }
+        }
+        Sparkline {
+            Layout.fillWidth: true
+            values: full.status.history || []
+            lineColor: colors.of(full.level)
+        }
     }
 
     Kirigami.Separator { Layout.fillWidth: true }

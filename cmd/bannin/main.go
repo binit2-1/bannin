@@ -14,7 +14,7 @@ import (
 	"github.com/binit2-1/bannin/internal/sampler"
 )
 
-const version = "0.0.1"
+var version = "dev" // set by -ldflags at build time
 
 func main() {
 	if len(os.Args) < 2 {

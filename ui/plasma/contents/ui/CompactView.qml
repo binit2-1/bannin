@@ -12,22 +12,7 @@ Item {
     property int ttfSec: 0          // seconds until RAM is full, 0 = not filling
     signal clicked()
 
-    // Theme colours, so light, dark and accent themes all work.
-    readonly property color okColor: Kirigami.Theme.highlightColor
-    readonly property color amber: Kirigami.Theme.neutralTextColor
-    readonly property color red: Kirigami.Theme.negativeTextColor
-    readonly property color orange: Kirigami.ColorUtils.linearInterpolation(amber, red, 0.5)
-    readonly property color trackColor: Qt.alpha(Kirigami.Theme.textColor, 0.15)
-
-    function levelColor(l) {
-        switch (l) {
-        case "elevated": return amber
-        case "high":     return orange
-        case "critical": return red
-        case "off":      return Qt.alpha(Kirigami.Theme.textColor, 0.3)
-        }
-        return okColor
-    }
+    LevelColors { id: colors }
 
     Layout.minimumWidth: row.implicitWidth + Kirigami.Units.smallSpacing * 2
     Layout.preferredWidth: Layout.minimumWidth
@@ -43,7 +28,7 @@ Item {
         implicitWidth: 74
         implicitHeight: 18
         radius: 5
-        color: compact.trackColor
+        color: colors.track
         clip: true
 
         Rectangle {
@@ -71,14 +56,14 @@ Item {
             name: "RAM"
             pct: compact.memPct
             known: compact.level !== "off"
-            fillColor: compact.levelColor(compact.level)
+            fillColor: colors.of(compact.level)
         }
 
         Meter {
             name: "Swap"
             pct: compact.swapPct
             known: compact.level !== "off"
-            fillColor: compact.swapPct > 80 ? compact.orange : Qt.alpha(compact.okColor, 0.7)
+            fillColor: compact.swapPct > 80 ? colors.high : Qt.alpha(colors.ok, 0.7)
         }
 
         // Never colour alone: a count of warnings, or how long until full.
@@ -88,7 +73,7 @@ Item {
             Layout.leftMargin: 2
             font.pixelSize: 11
             font.bold: compact.level === "critical"
-            color: compact.level === "ok" ? Kirigami.Theme.textColor : compact.levelColor(compact.level)
+            color: compact.level === "ok" ? Kirigami.Theme.textColor : colors.of(compact.level)
             text: compact.ttfSec > 0 && (compact.level === "critical" || compact.level === "high")
                   ? "~" + compact.ttfSec + "s"
                   : compact.warn > 0 ? "⚠" + compact.warn : ""

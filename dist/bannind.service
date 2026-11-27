@@ -1,0 +1,17 @@
+[Unit]
+Description=Bannin memory watchman
+Documentation=https://github.com/binit2-1/bannin
+# Notifications need the desktop session's D-Bus.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/bannind
+Restart=on-failure
+RestartSec=5
+# Bannin must stay small while it watches for memory trouble.
+Environment=GOMEMLIMIT=30MiB
+MemoryHigh=60M
+
+[Install]
+WantedBy=graphical-session.target

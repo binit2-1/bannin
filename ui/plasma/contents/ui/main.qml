@@ -5,69 +5,71 @@ import org.kde.plasma.plasma5support as P5
 PlasmoidItem {
     id: root
 
-    property real memPct: 0
-    property real swapPct: 0
-    property real usedGb: 0
-    property real totalGb: 0
+    // The last `bannin mem --json` reply, and `bannin list --json` groups.
+    property var status: ({})
     property var groups: []
     property string error: ""
-    property string level: "ok"
-    property int warn: 0
-    property int ttfSec: 0
-    property string biggest: ""
+    // "off" when bannin itself cannot be run; otherwise the level it reports.
+    readonly property string level: error !== "" && !status.level ? "off" : (status.level || "off")
 
-    function fmtLevel(l) { return l.charAt(0).toUpperCase() + l.slice(1) }
+    LevelColors { id: colors }
 
     toolTipMainText: level === "off"
         ? "Bannin · RAM --"
-        : "RAM " + Math.round(memPct) + "% · " + usedGb.toFixed(1) + " / " + totalGb.toFixed(1) + " GB"
+        : "RAM " + Math.round(status.mem_pct) + "% · "
+          + status.used_gb.toFixed(1) + " / " + status.total_gb.toFixed(1) + " GB"
     toolTipSubText: {
         if (level === "off") return error || "Can't read memory"
-        let parts = ["Swap " + swapPct.toFixed(1) + "%", fmtLevel(level)]
-        if (ttfSec > 0) parts.push("full in ~" + ttfSec + "s")
-        if (warn > 0) parts.push(warn + " left running")
-        if (biggest) parts.push("biggest: " + biggest)
+        let parts = ["Swap " + status.swap_pct.toFixed(1) + "%", colors.label(level)]
+        if (status.ttf_s) parts.push("full in ~" + status.ttf_s + "s")
+        if (status.warn) parts.push(status.warn + " left running")
+        if (status.biggest) parts.push("biggest: " + status.biggest)
+        if (!status.service) parts.push("service off")
         return parts.join(" · ")
     }
 
-    readonly property string cmdMem: "$HOME/.local/bin/bannin mem --json"
-    readonly property string cmdList: "$HOME/.local/bin/bannin list --json"
-    readonly property string cmdStop: "$HOME/.local/bin/bannin stop "
+    readonly property string bannin: "$HOME/.local/bin/bannin"
+    readonly property string cmdMem: bannin + " mem --json"
+    readonly property string cmdList: bannin + " list --json"
+
+    // Commands whose output we don't parse: we only refresh afterwards.
+    property var pending: ({})
+    function run(cmd) {
+        pending[cmd] = true
+        exec.connectSource(cmd)
+    }
 
     // Group IDs are "g" + hex, so they are safe to put in a shell command.
     function stopGroup(id) {
-        if (/^g[0-9a-f]{8}$/.test(id)) {
-            exec.connectSource(cmdStop + id)
-        }
+        if (/^g[0-9a-f]{8}$/.test(id)) run(bannin + " stop " + id)
     }
+    function snooze(minutes) { run(bannin + " snooze " + Math.round(minutes)) }
+    function startService() { run("systemctl --user start bannind.service") }
 
     P5.DataSource {
         id: exec
         engine: "executable"
         onNewData: (source, data) => {
             disconnectSource(source)
-            if (source.startsWith(root.cmdStop)) {
-                root.error = data["exit code"] === 0 ? "" : (data.stderr || "stop failed")
-                exec.connectSource(root.cmdList) // refresh right away
+            const ok = data["exit code"] === 0
+
+            if (root.pending[source]) {
+                delete root.pending[source]
+                root.error = ok ? "" : (data.stderr || "command failed").trim()
+                exec.connectSource(root.cmdMem) // refresh right away
+                if (root.expanded) exec.connectSource(root.cmdList)
                 return
             }
-            if (data["exit code"] !== 0) {
-                root.error = data.stderr || "bannin failed"
-                if (source === root.cmdMem) root.level = "off"
+            if (!ok) {
+                root.error = (data.stderr || "bannin failed").trim()
+                if (source === root.cmdMem) root.status = ({})
                 return
             }
             try {
                 const s = JSON.parse(data.stdout)
                 // `source` is the command that produced this output
                 if (source === root.cmdMem) {
-                    root.memPct = s.mem_pct
-                    root.swapPct = s.swap_pct
-                    root.usedGb = s.used_gb
-                    root.totalGb = s.total_gb
-                    root.level = s.level || "ok"
-                    root.warn = s.warn || 0
-                    root.ttfSec = s.ttf_s || 0
-                    root.biggest = s.biggest || ""
+                    root.status = s
                 } else if (source === root.cmdList) {
                     root.groups = s.groups
                 }
@@ -97,21 +99,21 @@ PlasmoidItem {
     }
 
     compactRepresentation: CompactView {
-        memPct: root.memPct
-        swapPct: root.swapPct
+        memPct: root.status.mem_pct || 0
+        swapPct: root.status.swap_pct || 0
         level: root.level
-        warn: root.warn
-        ttfSec: root.ttfSec
+        warn: root.status.warn || 0
+        ttfSec: root.status.ttf_s || 0
         onClicked: root.expanded = !root.expanded
     }
 
     fullRepresentation: FullView {
-        memPct: root.memPct
-        swapPct: root.swapPct
-        usedGb: root.usedGb
-        totalGb: root.totalGb
+        status: root.status
+        level: root.level
         groups: root.groups
         error: root.error
         onStopRequested: id => root.stopGroup(id)
+        onSnoozeRequested: minutes => root.snooze(minutes)
+        onStartServiceRequested: root.startService()
     }
 }
