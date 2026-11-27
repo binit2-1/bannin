@@ -1,5 +1,7 @@
 # Build with `make rpm`. The tarball includes vendor/, so the build needs no network.
 %global plasmoid_id io.github.binit2-1.bannin
+# Binaries are built with -s -w (no symbols), so there is nothing for a debuginfo package.
+%global debug_package %{nil}
 
 Name:           bannin
 Version:        %{?pkg_version}%{!?pkg_version:0.1.0}
@@ -29,12 +31,13 @@ run, logging what it would have stopped.
 %build
 export GOFLAGS="-mod=vendor -trimpath -buildmode=pie"
 export CGO_ENABLED=0
+export GOTOOLCHAIN=local
 for cmd in bannin bannind; do
     go build -ldflags "-s -w -X main.version=%{version}" -o bin/$cmd ./cmd/$cmd
 done
 
 %check
-GOFLAGS="-mod=vendor" go test ./...
+GOFLAGS="-mod=vendor" GOTOOLCHAIN=local go test ./...
 
 %install
 install -Dm755 bin/bannin  %{buildroot}%{_bindir}/bannin
@@ -56,3 +59,7 @@ cp -r ui/plasma/. %{buildroot}%{_datadir}/plasma/plasmoids/%{plasmoid_id}/
 %{_bindir}/bannind
 %{_userunitdir}/bannind.service
 %{_datadir}/plasma/plasmoids/%{plasmoid_id}/
+
+%changelog
+* Fri Nov 27 2026 binit2-1 - 0.1.0-1
+- First package: panel widget, bannind service, notifications, dry-run auto-stop

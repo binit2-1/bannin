@@ -68,8 +68,10 @@ tarball:
 	@tar -czf $(TARBALL) -C build/src bannin-$(PKG_VERSION)
 	@echo $(TARBALL)
 
+# With Go from go.dev instead of Fedora's golang package: make rpm RPMFLAGS=--nodeps
+RPMFLAGS ?=
 rpm: tarball
-	@rpmbuild -ba dist/bannin.spec \
+	@rpmbuild -ba $(RPMFLAGS) dist/bannin.spec \
 		--define "_topdir $(CURDIR)/build/rpm" \
 		--define "_sourcedir $(CURDIR)/build" \
 		--define "pkg_version $(PKG_VERSION)"
