@@ -4,10 +4,15 @@
   "KPlugin": {
     "Id": "io.github.binit2-1.bannin",
     "Name": "Bannin",
-    "Description": "Memory watchman",
+    "Description": "Warns before memory runs out",
     "Icon": "memory",
     "Category": "System Information",
-    "Version": "0.0.1",
-    "Authors": [{ "Name": "<your-name>" }]
+    "Version": "0.1.0",
+    "Authors": [
+      {
+        "Name": "binit2-1"
+      }
+    ],
+    "Website": "https://github.com/binit2-1/bannin"
   }
 }

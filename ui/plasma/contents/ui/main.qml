@@ -29,7 +29,8 @@ PlasmoidItem {
         return parts.join(" · ")
     }
 
-    readonly property string bannin: "$HOME/.local/bin/bannin"
+    // A local build in ~/.local/bin wins over a packaged /usr/bin/bannin.
+    readonly property string bannin: "PATH=\"$HOME/.local/bin:$PATH\" bannin"
     readonly property string cmdMem: bannin + " mem --json"
     // --all: the popup filters by the "Hide apps under" setting itself.
     readonly property string cmdList: bannin + " list --all --json"

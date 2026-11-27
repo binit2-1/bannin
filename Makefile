@@ -1,5 +1,5 @@
 .PHONY: run build fmt vet test clean install service-install service-uninstall \
-        widget-test widget-popup widget-install widget-refresh fake
+        widget-test widget-popup widget-install widget-refresh fake tarball rpm
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -21,7 +21,7 @@ test:
 	@go test ./...
 
 clean:
-	@rm -rf bin
+	@rm -rf bin build
 
 install: build
 	@install -Dm755 bin/bannin $(HOME)/.local/bin/bannin
@@ -55,3 +55,22 @@ widget-refresh: widget-install
 # Popup in a window (planar), with QML errors on the terminal.
 widget-popup:
 	@QT_FORCE_STDERR_LOGGING=1 plasmoidviewer -a ui/plasma
+
+# ---- Packaging (local only: nothing is uploaded) ----
+PKG_VERSION ?= $(shell jq -r .KPlugin.Version ui/plasma/metadata.json)
+TARBALL := build/bannin-$(PKG_VERSION).tar.gz
+
+# Source tarball with vendor/ included, so rpmbuild needs no network.
+tarball:
+	@rm -rf build/src && mkdir -p build/src/bannin-$(PKG_VERSION)
+	@git archive HEAD | tar -x -C build/src/bannin-$(PKG_VERSION)
+	@cd build/src/bannin-$(PKG_VERSION) && go mod vendor
+	@tar -czf $(TARBALL) -C build/src bannin-$(PKG_VERSION)
+	@echo $(TARBALL)
+
+rpm: tarball
+	@rpmbuild -ba dist/bannin.spec \
+		--define "_topdir $(CURDIR)/build/rpm" \
+		--define "_sourcedir $(CURDIR)/build" \
+		--define "pkg_version $(PKG_VERSION)"
+	@ls build/rpm/RPMS/*/*.rpm
