@@ -3,6 +3,7 @@ package sampler
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -79,6 +80,14 @@ func readProc(pid int, myUID string) (Proc, bool) {
 	// Skip other users' processes, and kernel threads (they have no VmRSS).
 	if !mine || p.RSSKB == 0 {
 		return Proc{}, false
+	}
+
+	// Node 24 names its main thread "MainThread", and that shows up as the
+	// process name. Use the name of the program file instead.
+	if p.Name == "MainThread" {
+		if exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid)); err == nil {
+			p.Name = filepath.Base(strings.TrimSuffix(exe, " (deleted)"))
+		}
 	}
 
 	// cmdline separates arguments with NUL bytes (\x00).

@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/binit2-1/bannin/internal/group"
+	"github.com/binit2-1/bannin/internal/ipc"
 	"github.com/binit2-1/bannin/internal/sampler"
 )
 
@@ -38,7 +39,7 @@ func main() {
 		totalGB := float64(m.TotalKB) / 1024 / 1024
 
 		if len(os.Args) > 2 && os.Args[2] == "--json" {
-			out := memJSON{
+			out := ipc.MemStatus{
 				V:       1,
 				MemPct:  m.UsedPercent(),
 				SwapPct: m.SwapUsedPercent(),
@@ -81,22 +82,44 @@ func main() {
 			os.Exit(1)
 		}
 
-		minMB := 100.0 // hide small groups unless --all is given
-		if len(os.Args) > 2 && os.Args[2] == "--all" {
-			minMB = 0
+		minMB := 100.0
+		asJSON := false
+		for _, a := range os.Args[2:] {
+			switch a {
+			case "--all":
+				minMB = 0
+			case "--json":
+				asJSON = true
+			}
 		}
 
-		fmt.Printf("%-2s %-30s %9s %5s\n", "", "GROUP", "RSS(MB)", "PROCS")
+		infos := make([]ipc.GroupInfo, 0) // empty list, not nil, so JSON gives [] not null
 		for _, g := range group.Build(procs) {
 			mb := float64(g.RSSKB) / 1024
 			if mb < minMB {
 				continue
 			}
+			infos = append(infos, ipc.GroupInfo{
+				Name:     g.Name,
+				Kind:     g.Kind,
+				RSSMB:    mb,
+				PIDs:     g.PIDs,
+				Detached: g.Detached,
+			})
+		}
+
+		if asJSON {
+			json.NewEncoder(os.Stdout).Encode(ipc.ListResponse{V: 1, Groups: infos})
+			return
+		}
+
+		fmt.Printf("%-2s %-30s %9s %5s\n", "", "GROUP", "RSS(MB)", "PROCS")
+		for _, g := range infos {
 			mark := ""
 			if g.Detached {
 				mark = "⚠"
 			}
-			fmt.Printf("%-2s %-30s %9.0f %5d\n", mark, g.Name, mb, len(g.PIDs))
+			fmt.Printf("%-2s %-30s %9.0f %5d\n", mark, g.Name, g.RSSMB, len(g.PIDs))
 		}
 	default:
 		fmt.Println("unknown command:", os.Args[1])
