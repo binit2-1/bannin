@@ -37,6 +37,14 @@ func main() {
 		Thresholds: engine.DefaultThresholds,
 	})
 
+	// Notifications are optional: without a notification server we still run.
+	if alerts, err := service.NewAlerts(*fake); err != nil {
+		log.Printf("notifications off: %v", err)
+	} else {
+		defer alerts.Close()
+		svc.OnLevel = alerts.OnLevel
+	}
+
 	log.Printf("bannind %s started (fake=%v)", version, *fake)
 	if err := svc.Run(ctx); err != nil {
 		log.Fatal(err)
