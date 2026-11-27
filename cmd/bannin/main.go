@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/binit2-1/bannin/internal/sampler"
 )
@@ -54,6 +55,23 @@ func main() {
 		)
 		fmt.Printf("Swap %.1f%% used\n", m.SwapUsedPercent())
 
+	case "top":
+		procs, err := sampler.ReadProc()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		sort.Slice(procs, func(i, j int) bool {
+			return procs[i].RSSKB > procs[j].RSSKB
+		})
+		if len(procs) > 15 {
+			procs = procs[:15]
+		}
+		fmt.Printf("%7s %9s  %-16s %s\n", "PID", "RSS(MB)", "NAME", "COMMAND")
+		for _, p := range procs {
+			fmt.Printf("%7d %9.0f  %-16s %s\n",
+				p.PID, float64(p.RSSKB)/1024, p.Name, truncate(p.Cmd, 70))
+		}
 	default:
 		fmt.Println("unknown command:", os.Args[1])
 		usage()
@@ -66,4 +84,13 @@ func usage() {
 	fmt.Println("usage: bannin <command>")
 	fmt.Println("commands:")
 	fmt.Println("  version   show the version")
+}
+
+// truncate shortens s to n characters, adding … if it was cut.
+func truncate(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
 }
