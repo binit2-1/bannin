@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/binit2-1/bannin/internal/group"
 	"github.com/binit2-1/bannin/internal/sampler"
 )
 
@@ -56,7 +57,7 @@ func main() {
 		fmt.Printf("Swap %.1f%% used\n", m.SwapUsedPercent())
 
 	case "top":
-		procs, err := sampler.ReadProc()
+		procs, err := sampler.ReadProcs()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
@@ -71,6 +72,31 @@ func main() {
 		for _, p := range procs {
 			fmt.Printf("%7d %9.0f  %-16s %s\n",
 				p.PID, float64(p.RSSKB)/1024, p.Name, truncate(p.Cmd, 70))
+		}
+
+	case "list":
+		procs, err := sampler.ReadProcs()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+
+		minMB := 100.0 // hide small groups unless --all is given
+		if len(os.Args) > 2 && os.Args[2] == "--all" {
+			minMB = 0
+		}
+
+		fmt.Printf("%-2s %-30s %9s %5s\n", "", "GROUP", "RSS(MB)", "PROCS")
+		for _, g := range group.Build(procs) {
+			mb := float64(g.RSSKB) / 1024
+			if mb < minMB {
+				continue
+			}
+			mark := ""
+			if g.Detached {
+				mark = "⚠"
+			}
+			fmt.Printf("%-2s %-30s %9.0f %5d\n", mark, g.Name, mb, len(g.PIDs))
 		}
 	default:
 		fmt.Println("unknown command:", os.Args[1])

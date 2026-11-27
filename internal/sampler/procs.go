@@ -8,15 +8,17 @@ import (
 )
 
 type Proc struct {
-	PID   int    //process ID
-	PPID  int    // parent process id
-	Name  string //process name
-	RSSKB uint64 //memory held by process in ram (kB)
-	Cmd   string //full cmd
+	PID    int    //process ID
+	PPID   int    // parent process id
+	Name   string //process name
+	RSSKB  uint64 //memory held by process in ram (kB)
+	Cmd    string //full
+	HasTTY bool   // attached to a terminal?
+	Cwd    string // folder the process was started in
 }
 
 // ReadProcs lists the processes owned by the current user that use RAM.
-func ReadProc() ([]Proc, error) {
+func ReadProcs() ([]Proc, error) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return nil, err
@@ -82,6 +84,21 @@ func readProc(pid int, myUID string) (Proc, bool) {
 	// cmdline separates arguments with NUL bytes (\x00).
 	cmd, _ := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
 	p.Cmd = strings.TrimSpace(strings.ReplaceAll(string(cmd), "\x00", " "))
+
+	// /proc/<pid>/stat: the name is in (...) and can contain spaces or ")",
+	// so we cut after the LAST ")". Then the fields are:
+	// state, ppid, pgrp, session, tty_nr
+	if stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
+		s := string(stat)
+		if i := strings.LastIndex(s, ")"); i >= 0 {
+			f := strings.Fields(s[i+1:])
+			if len(f) > 4 {
+				p.HasTTY = f[4] != "0"
+			}
+		}
+	}
+
+	p.Cwd, _ = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
 
 	return p, true
 }
