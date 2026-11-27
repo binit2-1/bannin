@@ -1,0 +1,20 @@
+---
+import { HeaderActions } from '../components/HeaderActions';
+import Layout from '../layouts/Layout.astro';
+
+const title = 'Bannin';
+const description = 'A memory watchman for KDE Plasma on Linux.';
+---
+
+<Layout title={title} description={description}>
+  <main class="mx-auto max-w-199">
+    <header class="flex items-center justify-between">
+      <h1
+        class="relative isolate w-fit cursor-pointer text-3xl font-extralight transition-colors duration-300 ease-in-out before:absolute before:inset-0 before:-z-10 before:origin-bottom before:scale-y-0 before:bg-[#0015FF] before:transition-transform before:duration-300 before:ease-in-out hover:text-[#FAFAFA] hover:before:scale-y-100"
+      >
+        {title}
+      </h1>
+      <HeaderActions client:load githubUrl="https://github.com/binit2-1/bannin" />
+    </header>
+  </main>
+</Layout>

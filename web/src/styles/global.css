@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/fira-code';
+
+/* dark: utilities apply when <html> has the "dark" class */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Fira Code Variable', ui-monospace, monospace;
+  --font-mono: 'Fira Code Variable', ui-monospace, monospace;
+}
