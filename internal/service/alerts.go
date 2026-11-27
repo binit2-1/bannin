@@ -143,7 +143,7 @@ func (a *Alerts) handleActions() {
 				log.Printf("(fake) would stop %s, PIDs %v", t.Name, t.PIDs)
 				continue
 			}
-			alive := stop.Group(t.PIDs, false)
+			alive := stop.Targets(t.Targets(), false)
 			log.Printf("stopped %s from notification (%d still running)", t.Name, len(alive))
 		}
 	}

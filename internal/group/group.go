@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/binit2-1/bannin/internal/sampler"
+	"github.com/binit2-1/bannin/internal/stop"
 )
 
 // Group is a set of related processes shown as one line.
@@ -17,7 +18,8 @@ type Group struct {
 	Kind     string // "metro", "gradle", "emulator", "devtool", "other"
 	RSSKB    uint64
 	PIDs     []int
-	Detached bool // a dev-tool process with no terminal and no real parent
+	Starts   []uint64 // start time of each PID, same order
+	Detached bool     // a dev-tool process with no terminal and no real parent
 }
 
 // Build turns a flat process list into groups, biggest first.
@@ -38,6 +40,7 @@ func Build(procs []sampler.Proc) []Group {
 		}
 		g.RSSKB += p.RSSKB
 		g.PIDs = append(g.PIDs, p.PID)
+		g.Starts = append(g.Starts, p.Start)
 
 		if kind != "other" && isDetached(p, byPID) {
 			g.Detached = true
@@ -110,6 +113,15 @@ func isDetached(p sampler.Proc, byPID map[int]sampler.Proc) bool {
 	}
 	parent, ok := byPID[p.PPID]
 	return ok && parent.Name == "systemd"
+}
+
+// Targets returns the group's processes in the form stop.Targets wants.
+func (g Group) Targets() []stop.Target {
+	t := make([]stop.Target, len(g.PIDs))
+	for i, pid := range g.PIDs {
+		t[i] = stop.Target{PID: pid, Start: g.Starts[i]}
+	}
+	return t
 }
 
 // makeID turns a group name into a short ID made only of "g" and hex digits.

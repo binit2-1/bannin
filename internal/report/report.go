@@ -90,7 +90,7 @@ func Stop(id string, force bool) ipc.Result {
 		if g.ID != id {
 			continue
 		}
-		if alive := stop.Group(g.PIDs, force); len(alive) > 0 {
+		if alive := stop.Targets(g.Targets(), force); len(alive) > 0 {
 			return ipc.Result{Error: fmt.Sprintf("%s: %d process(es) still running", g.Name, len(alive))}
 		}
 		return ipc.Result{OK: true, Message: fmt.Sprintf("stopped %s (%.0f MB)", g.Name, float64(g.RSSKB)/1024)}

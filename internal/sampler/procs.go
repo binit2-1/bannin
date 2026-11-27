@@ -16,6 +16,7 @@ type Proc struct {
 	Cmd    string //full
 	HasTTY bool   // attached to a terminal?
 	Cwd    string // folder the process was started in
+	Start  uint64 // start time in clock ticks since boot; with PID, names one process for good
 }
 
 // ReadProcs lists the processes owned by the current user that use RAM.
@@ -94,20 +95,38 @@ func readProc(pid int, myUID string) (Proc, bool) {
 	cmd, _ := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
 	p.Cmd = strings.TrimSpace(strings.ReplaceAll(string(cmd), "\x00", " "))
 
-	// /proc/<pid>/stat: the name is in (...) and can contain spaces or ")",
-	// so we cut after the LAST ")". Then the fields are:
-	// state, ppid, pgrp, session, tty_nr
-	if stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
-		s := string(stat)
-		if i := strings.LastIndex(s, ")"); i >= 0 {
-			f := strings.Fields(s[i+1:])
-			if len(f) > 4 {
-				p.HasTTY = f[4] != "0"
-			}
-		}
+	if f := statFields(pid); len(f) > 19 {
+		p.HasTTY = f[4] != "0"
+		p.Start, _ = strconv.ParseUint(f[19], 10, 64)
 	}
 
 	p.Cwd, _ = os.Readlink(fmt.Sprintf("/proc/%d/cwd", pid))
 
 	return p, true
+}
+
+// statFields reads /proc/<pid>/stat and returns the fields after the name.
+// The name is in (...) and can contain spaces or ")", so we cut after the
+// LAST ")". Then f[0] is state, f[1] ppid, f[4] tty_nr, f[19] starttime.
+func statFields(pid int) []string {
+	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return nil
+	}
+	s := string(stat)
+	i := strings.LastIndex(s, ")")
+	if i < 0 {
+		return nil
+	}
+	return strings.Fields(s[i+1:])
+}
+
+// StartTime returns the start time of pid, and false if it is gone.
+func StartTime(pid int) (uint64, bool) {
+	f := statFields(pid)
+	if len(f) <= 19 {
+		return 0, false
+	}
+	v, err := strconv.ParseUint(f[19], 10, 64)
+	return v, err == nil
 }
