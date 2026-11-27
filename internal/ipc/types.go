@@ -17,6 +17,7 @@ type GroupInfo struct {
 	RSSMB    float64 `json:"rss_mb"`
 	PIDs     []int   `json:"pids"`
 	Detached bool    `json:"detached"`
+	Icon     string  `json:"icon"` // theme icon name, or "bundled:<name>"
 }
 
 // ListResponse is the output of `bannin list --json`.

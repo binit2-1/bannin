@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/binit2-1/bannin/internal/group"
+	"github.com/binit2-1/bannin/internal/icon"
 	"github.com/binit2-1/bannin/internal/ipc"
 	"github.com/binit2-1/bannin/internal/sampler"
 	"github.com/binit2-1/bannin/internal/stop"
@@ -94,6 +95,7 @@ func main() {
 			}
 		}
 
+		icons := icon.New(icon.DefaultDirs()...)
 		infos := make([]ipc.GroupInfo, 0) // empty list, not nil, so JSON gives [] not null
 		for _, g := range group.Build(procs) {
 			mb := float64(g.RSSKB) / 1024
@@ -107,6 +109,7 @@ func main() {
 				RSSMB:    mb,
 				PIDs:     g.PIDs,
 				Detached: g.Detached,
+				Icon:     icons.For(g.Kind, g.Name),
 			})
 		}
 

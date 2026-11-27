@@ -18,6 +18,14 @@ ColumnLayout {
     Layout.minimumWidth: Kirigami.Units.gridUnit * 20
     spacing: Kirigami.Units.smallSpacing
 
+    // "bundled:react" is an SVG shipped with the widget; anything else is a theme icon.
+    function iconFor(name) {
+        if (!name) return "application-x-executable"
+        return name.startsWith("bundled:")
+            ? Qt.resolvedUrl("../icons/" + name.slice(8) + ".svg")
+            : name
+    }
+
     // 1536 MB becomes "1.5 GB"
     function fmt(mb) {
         return mb >= 1024 ? (mb / 1024).toFixed(1) + " GB" : Math.round(mb) + " MB"
@@ -58,43 +66,65 @@ ColumnLayout {
         opacity: 0.7
     }
 
-    Repeater {
-        model: full.groups
+    // Only the process list scrolls; the RAM and swap bars stay in view.
+    PC.ScrollView {
+        id: scroll
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.preferredHeight: Math.min(list.implicitHeight,
+                                         Kirigami.Units.gridUnit * 18)
+        visible: groups.length > 0
+        PC.ScrollBar.horizontal.policy: PC.ScrollBar.AlwaysOff
 
-        delegate: RowLayout {
-            Layout.fillWidth: true
+        ColumnLayout {
+            id: list
+            width: scroll.availableWidth
             spacing: Kirigami.Units.smallSpacing
 
-            // A fixed-size slot, so names line up even when there is no warning icon
-            Item {
-                Layout.preferredWidth: Kirigami.Units.iconSizes.small
-                Layout.preferredHeight: Kirigami.Units.iconSizes.small
+            Repeater {
+                model: full.groups
 
-                Kirigami.Icon {
-                    anchors.fill: parent
-                    source: "dialog-warning"
-                    visible: modelData.detached
+                delegate: RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+
+                    // App icon, with a small warning badge for detached dev tools
+                    Kirigami.Icon {
+                        Layout.preferredWidth: Kirigami.Units.iconSizes.smallMedium
+                        Layout.preferredHeight: Kirigami.Units.iconSizes.smallMedium
+                        source: full.iconFor(modelData.icon)
+                        fallback: "application-x-executable"
+
+                        Kirigami.Icon {
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            width: parent.width / 2
+                            height: width
+                            source: "dialog-warning"
+                            visible: modelData.detached
+                        }
+                    }
+
+                    PC.Label {
+                        Layout.fillWidth: true
+                        text: modelData.name
+                        elide: Text.ElideRight
+                    }
+
+                    PC.Label {
+                        text: full.fmt(modelData.rss_mb)
+                        opacity: 0.8
+                    }
+
+                    PC.ToolButton {
+                        icon.name: "process-stop"
+                        display: PC.AbstractButton.IconOnly
+                        text: "Stop " + modelData.name
+                        PC.ToolTip.text: text
+                        PC.ToolTip.visible: hovered
+                        onClicked: full.stopRequested(modelData.id)
+                    }
                 }
-            }
-
-            PC.Label {
-                Layout.fillWidth: true
-                text: modelData.name
-                elide: Text.ElideRight
-            }
-
-            PC.Label {
-                text: full.fmt(modelData.rss_mb)
-                opacity: 0.8
-            }
-
-            PC.ToolButton {
-                icon.name: "process-stop"
-                display: PC.AbstractButton.IconOnly
-                text: "Stop " + modelData.name
-                PC.ToolTip.text: text
-                PC.ToolTip.visible: hovered
-                onClicked: full.stopRequested(modelData.id)
             }
         }
     }

@@ -54,6 +54,15 @@ func Build(procs []sampler.Proc) []Group {
 	return result
 }
 
+// firefoxParts are the names Firefox gives its helper processes.
+// (Linux cuts process names to 15 characters.)
+var firefoxParts = map[string]bool{
+	"firefox": true, "Isolated Web Co": true, "Web Content": true,
+	"WebExtensions": true, "Privileged Cont": true, "RDD Process": true,
+	"Socket Process": true, "Utility Process": true, "GPU Process": true,
+	"Isolated Servic": true, "Forked Child": true,
+}
+
 // classify decides which group a process belongs to.
 // The order matters: the first matching rule wins.
 func classify(p sampler.Proc) (kind, name string) {
@@ -72,6 +81,9 @@ func classify(p sampler.Proc) (kind, name string) {
 		strings.Contains(cmd, "react-native") ||
 		strings.Contains(cmd, "expo")):
 		return "metro", "Metro · " + project(p)
+
+	case firefoxParts[p.Name]:
+		return "other", "Firefox"
 
 	case p.Name == "adb", p.Name == "watchman":
 		return "devtool", p.Name
