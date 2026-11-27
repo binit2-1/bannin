@@ -1,5 +1,5 @@
 .PHONY: run build fmt vet test clean install service-install service-uninstall \
-        widget-test widget-popup widget-install widget-refresh fake tarball rpm
+        widget-test widget-popup widget-install widget-refresh fake tarball rpm release
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
@@ -76,3 +76,10 @@ rpm: tarball
 		--define "_sourcedir $(CURDIR)/build" \
 		--define "pkg_version $(PKG_VERSION)"
 	@ls build/rpm/RPMS/*/*.rpm
+
+# Prebuilt tarballs with install.sh: users need no Go, git or make.
+RELEASE_ARCHES ?= x86_64 aarch64
+release:
+	@rm -rf build/release && mkdir -p build/release
+	@sh dist/release.sh $(PKG_VERSION) build/release $(RELEASE_ARCHES)
+	@ls build/release

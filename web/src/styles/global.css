@@ -1,10 +1,17 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/fira-code';
 
-/* dark: utilities apply when <html> has the "dark" class */
+/* The site is dark only. <html> always has the "dark" class, so the copied
+   components' dark: classes apply whatever the system theme is. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: 'Fira Code Variable', ui-monospace, monospace;
   --font-mono: 'Fira Code Variable', ui-monospace, monospace;
 }
+
+/* Code blocks: keep the box's own background */
+.astro-code {
+  background-color: transparent !important;
+}
+

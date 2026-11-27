@@ -7,8 +7,7 @@ Name:           bannin
 Version:        %{?pkg_version}%{!?pkg_version:0.1.0}
 Release:        1%{?dist}
 Summary:        Memory watchman for KDE Plasma that warns before your system freezes
-# TODO: choose a license and add a LICENSE file before publishing.
-License:        LicenseRef-TBD
+License:        MIT
 URL:            https://github.com/binit2-1/bannin
 Source0:        %{name}-%{version}.tar.gz
 
@@ -54,6 +53,7 @@ cp -r ui/plasma/. %{buildroot}%{_datadir}/plasma/plasmoids/%{plasmoid_id}/
 %systemd_user_preun bannind.service
 
 %files
+%license LICENSE
 %doc README.md
 %{_bindir}/bannin
 %{_bindir}/bannind

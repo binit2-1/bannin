@@ -10,22 +10,14 @@ const { title, description } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" class="scheme-light dark:scheme-dark">
+<html lang="en" class="dark scheme-dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{title}</title>
-    <!-- Runs before the page paints, so a saved dark theme doesn't flash light -->
-    <script is:inline>
-      try {
-        if (localStorage.getItem('theme') === 'dark') {
-          document.documentElement.classList.add('dark');
-        }
-      } catch {}
-    </script>
   </head>
-  <body class="bg-[#FAFAFA] px-4 py-8 font-sans text-[#111113] antialiased dark:bg-[#111113] dark:text-[#FAFAFA]">
+  <body class="bg-[#111113] px-4 py-8 font-sans text-[#FAFAFA] antialiased">
     <slot />
   </body>
 </html>

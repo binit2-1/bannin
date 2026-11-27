@@ -8,6 +8,7 @@
     "Icon": "memory",
     "Category": "System Information",
     "Version": "0.1.0",
+    "License": "MIT",
     "Authors": [
       {
         "Name": "binit2-1"

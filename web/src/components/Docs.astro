@@ -1,0 +1,119 @@
+---
+// The version and widget ID come from the widget, so the commands match each release.
+import metadata from '../../../ui/plasma/metadata.json';
+import CodeBlock from './CodeBlock.astro';
+
+const repo = 'https://github.com/binit2-1/bannin';
+const folder = `bannin-${metadata.KPlugin.Version}-linux-$(uname -m)`;
+
+const releaseInstall = `tar -xzf ${folder}.tar.gz
+cd ${folder}
+./install.sh`;
+
+const releaseUpdate = `${releaseInstall}
+systemctl --user restart plasma-plasmashell`;
+
+const releaseRemove = `cd ${folder}
+./uninstall.sh`;
+
+const gitInstall = `git clone ${repo}.git
+cd bannin
+make service-install widget-install`;
+
+const gitUpdate = `cd bannin
+git pull
+make service-install widget-refresh`;
+
+const gitRemove = `cd bannin
+make service-uninstall
+kpackagetool6 -t Plasma/Applet -r ${metadata.KPlugin.Id}
+rm ~/.local/bin/bannin ~/.local/bin/bannind`;
+
+const option =
+  'cursor-pointer border border-neutral-800 px-3 py-1 text-sm has-checked:border-[#0015FF] has-checked:bg-[#0015FF] has-checked:text-[#FAFAFA] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-[#0015FF]';
+
+// Each block shows for one method only. CSS does the switching, so no script is needed.
+const release = 'group-has-[#method-git:checked]/docs:hidden';
+const git = 'hidden group-has-[#method-git:checked]/docs:block';
+---
+
+<div class="group/docs">
+  <fieldset class="mt-12 flex gap-2">
+    <legend class="sr-only">Install method</legend>
+    <label class={option}>
+      <input class="sr-only" type="radio" name="method" id="method-release" checked />
+      Release
+    </label>
+    <label class={option}>
+      <input class="sr-only" type="radio" name="method" id="method-git" />
+      Git clone
+    </label>
+  </fieldset>
+
+  <section id="install" class="mt-8">
+    <h2 class="text-xl">Install</h2>
+
+    <div class={release}>
+      <p class="mt-3 font-light">
+        Needs KDE Plasma 6 and systemd. No root, Go or git.
+      </p>
+      <p class="mt-3 font-light">
+        Download the file for your CPU (x86_64 or aarch64) from{' '}
+        <a class="underline" href={`${repo}/releases`} target="_blank" rel="noopener noreferrer">Releases</a>,
+        then run this in the same folder:
+      </p>
+      <CodeBlock code={releaseInstall} />
+    </div>
+
+    <div class={git}>
+      <p class="mt-3 font-light">
+        Needs KDE Plasma 6, systemd, git, make and Go 1.26.2 or newer.
+      </p>
+      <CodeBlock code={gitInstall} />
+    </div>
+
+    <p class="mt-3 font-light">
+      Then right-click your panel, choose <em>Add Widgets…</em> and add{' '}
+      <strong class="font-medium">Bannin</strong>.
+    </p>
+  </section>
+
+  <!-- Whatever the page puts inside <Docs> appears here, after the install steps -->
+  <slot />
+
+  <section id="update" class="mt-12">
+    <h2 class="text-xl">Update</h2>
+
+    <div class={release}>
+      <p class="mt-3 font-light">
+        Download the new release and run its installer. The last line restarts the
+        Plasma panel to load the new widget. Your settings are kept.
+      </p>
+      <CodeBlock code={releaseUpdate} />
+    </div>
+
+    <div class={git}>
+      <p class="mt-3 font-light">
+        Pull the latest code and install it again. This also restarts the Plasma
+        panel. Your settings are kept.
+      </p>
+      <CodeBlock code={gitUpdate} />
+    </div>
+  </section>
+
+  <section id="remove" class="mt-12">
+    <h2 class="text-xl">Remove</h2>
+    <p class="mt-3 font-light">
+      Remove the widget from your panel if it is still there afterwards. Your
+      settings stay in <code>~/.config/bannin</code>.
+    </p>
+
+    <div class={release}>
+      <CodeBlock code={releaseRemove} />
+    </div>
+
+    <div class={git}>
+      <CodeBlock code={gitRemove} />
+    </div>
+  </section>
+</div>

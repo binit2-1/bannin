@@ -31,6 +31,20 @@ Keep `systemd-oomd` enabled: it is the safety net underneath Bannin.
 
 ## Install
 
+Needs KDE Plasma 6 and systemd. Download the tarball for your CPU (`x86_64` or
+`aarch64`) from [Releases](https://github.com/binit2-1/bannin/releases), then:
+
+```sh
+tar -xzf bannin-0.1.0-linux-$(uname -m).tar.gz
+cd bannin-0.1.0-linux-$(uname -m)
+./install.sh
+```
+
+Then right-click the panel → *Add Widgets…* → **Bannin**.
+
+No root, Go, git or make needed. Run a newer release's `./install.sh` to
+upgrade, and `./uninstall.sh` to remove Bannin (your settings are kept).
+
 ### From source
 
 Needs Go 1.26+, Plasma 6 and `kpackagetool6`.
@@ -123,6 +137,18 @@ make widget-refresh    # reinstall and restart plasmashell
 
 macOS and desktops other than Plasma, CPU and disk-pressure warnings, and
 auto-stopping apps that aren't dev tools.
+
+## Making a release
+
+```sh
+make release           # build/release/: tarballs for x86_64 and aarch64, plus SHA256SUMS
+```
+
+Nothing is uploaded.
+
+## License
+
+[MIT](LICENSE)
 
 ## Credits
 

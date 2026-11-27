@@ -1,0 +1,49 @@
+---
+import notifyCritical from '../assets/notify-critical.png';
+import notifyHigh from '../assets/notify-high.png';
+import popup from '../assets/popup.png';
+import timeToFull from '../assets/time-to-full.png';
+
+// Two per row, in this order.
+const features = [
+  {
+    image: popup,
+    caption: 'See RAM and swap in your panel, and which apps use the most.',
+    alt: 'The Bannin panel bar and popup, showing RAM and swap use, a 60-second graph and the apps using the most memory.',
+  },
+  {
+    image: timeToFull,
+    caption: 'Know about how many seconds are left before memory is full.',
+    alt: 'The Bannin popup on a Plasma panel at 75% RAM, showing about 90 seconds until memory is full.',
+  },
+  {
+    image: notifyHigh,
+    caption: 'Get a warning when memory is high. Snooze it for 10 minutes.',
+    alt: 'Bannin notification: Memory is getting high, RAM 86%, with a Snooze 10 min button.',
+  },
+  {
+    image: notifyCritical,
+    caption: 'Get a final warning before the system may freeze.',
+    alt: 'Bannin notification: Memory full in about 11 seconds, RAM 92%, with a Snooze 10 min button.',
+  },
+];
+---
+
+<section id="features" class="mt-12">
+  <h2 class="text-xl">Features</h2>
+
+  <div class="mt-6 grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
+    {features.map(({ image, caption, alt }) => (
+      <figure>
+        <img src={image.src} width={image.width} height={image.height} loading="lazy" alt={alt} class="h-auto w-full" />
+        <figcaption class="mt-3 text-center text-sm font-light">{caption}</figcaption>
+      </figure>
+    ))}
+  </div>
+
+  <p class="mt-8 font-light">
+    Bannin also offers a Stop button for dev tools left running after their
+    terminal closed (Metro, Gradle daemons, the Android emulator). Auto-stop
+    starts in dry run: it only logs what it would stop.
+  </p>
+</section>
